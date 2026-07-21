@@ -54,6 +54,9 @@ class ModelDownloadWorker(
         val targetFile = File(modelsDir, fileName)
         val tempFile = File(modelsDir, "$fileName.tmp")
         
+        if (targetFile.parentFile?.exists() == false) targetFile.parentFile?.mkdirs()
+        if (tempFile.parentFile?.exists() == false) tempFile.parentFile?.mkdirs()
+        
         // Skip if already successfully downloaded
         if (targetFile.exists() && targetFile.length() > 1024) {
             Log.d("ModelDownloadWorker", "File $fileName already exists, skipping.")

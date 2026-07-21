@@ -65,8 +65,8 @@ class ModelManager(private val context: Context) {
                 sizeMb = 135,
                 category = ModelCategory.TEXT_CLEANING,
                 type = ModelType.SMOLLM_ONNX,
-                downloadUrl = "https://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX/resolve/main/onnx/",
-                requiredFiles = listOf("model_quantized.onnx")
+                downloadUrl = "https://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX/resolve/main/",
+                requiredFiles = listOf("onnx/model_quantized.onnx", "tokenizer.json")
             )
         )
     }

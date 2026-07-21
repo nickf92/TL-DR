@@ -77,7 +77,9 @@ class SmolLmTextCleaner(
         val formattedChatPrompt = "<|im_start|>system\n$systemPrompt<|im_end|>\n<|im_start|>user\n$rawText<|im_end|>\n<|im_start|>assistant\n"
 
         return try {
-            val modelFile = java.io.File(modelPath, "model_quantized.onnx")
+            val modelFile = java.io.File(modelPath, "onnx/model_quantized.onnx").let {
+                if (it.exists()) it else java.io.File(modelPath, "model_quantized.onnx")
+            }
             if (!modelFile.exists()) return ruleBasedFallback.cleanText(rawText)
 
             val env = ai.onnxruntime.OrtEnvironment.getEnvironment()
