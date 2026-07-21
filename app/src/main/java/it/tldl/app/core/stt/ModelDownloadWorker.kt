@@ -80,8 +80,14 @@ class ModelDownloadWorker(
                 output.close()
                 input.close()
 
-                // Atomic rename to final filename
-                if (tempFile.renameTo(targetFile)) {
+                // Atomic rename to final filename with fallback copy
+                val isSuccess = tempFile.renameTo(targetFile) || run {
+                    tempFile.copyTo(targetFile, overwrite = true)
+                    tempFile.delete()
+                    targetFile.exists()
+                }
+
+                if (isSuccess) {
                     Log.d("ModelDownloadWorker", "Download completed and renamed: $fileName")
                     Result.success()
                 } else {

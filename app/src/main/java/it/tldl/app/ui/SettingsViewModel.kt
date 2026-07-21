@@ -53,8 +53,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         
         Log.d("SettingsViewModel", "Enqueuing download for model: ${model.id}")
 
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
         val requests = model.requiredFiles.map { fileName ->
             OneTimeWorkRequestBuilder<ModelDownloadWorker>()
+                .setConstraints(constraints)
                 .setInputData(workDataOf(
                     "url" to model.downloadUrl + fileName,
                     "id" to model.id,

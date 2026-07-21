@@ -14,44 +14,34 @@ class ModelManager(private val context: Context) {
     fun getAvailableModels(): List<ModelInfo> {
         return listOf(
             ModelInfo(
-                id = "zipformer-it-small",
-                name = "Italiano (Veloce)",
-                ramRequiredMb = 400,
-                sizeMb = 120,
-                isIdealCap = true,
-                type = ModelType.ZIPFORMER,
-                downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-asr-zipformer-it-2023-06-26/resolve/main/",
-                requiredFiles = listOf("encoder-epoch-99-avg-1.int8.onnx", "decoder-epoch-99-avg-1.int8.onnx", "joiner-epoch-99-avg-1.int8.onnx", "tokens.txt")
-            ),
-            ModelInfo(
-                id = "zipformer-it-large",
-                name = "Italiano (Preciso)",
-                ramRequiredMb = 1200,
-                sizeMb = 450,
-                isIdealCap = false,
-                type = ModelType.ZIPFORMER,
-                downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-asr-zipformer-it-2023-06-26/resolve/main/",
-                requiredFiles = listOf("encoder-epoch-99-avg-1.onnx", "decoder-epoch-99-avg-1.onnx", "joiner-epoch-99-avg-1.onnx", "tokens.txt")
-            ),
-            ModelInfo(
-                id = "whisper-tiny-en",
-                name = "OpenAI Whisper Tiny (Inglese)",
+                id = "whisper-tiny",
+                name = "Whisper Tiny (Multilingua - Veloce)",
                 ramRequiredMb = 300,
-                sizeMb = 40,
+                sizeMb = 45,
                 isIdealCap = false,
                 type = ModelType.WHISPER,
-                downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny.en/resolve/main/",
+                downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/",
                 requiredFiles = listOf("tiny-encoder.int8.onnx", "tiny-decoder.int8.onnx", "tiny-tokens.txt")
             ),
             ModelInfo(
-                id = "whisper-base-it",
-                name = "OpenAI Whisper Base (Multilingua)",
+                id = "whisper-base",
+                name = "Whisper Base (Multilingua - Consigliato)",
                 ramRequiredMb = 600,
                 sizeMb = 150,
-                isIdealCap = false,
+                isIdealCap = true,
                 type = ModelType.WHISPER,
                 downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/",
                 requiredFiles = listOf("base-encoder.int8.onnx", "base-decoder.int8.onnx", "base-tokens.txt")
+            ),
+            ModelInfo(
+                id = "whisper-small",
+                name = "Whisper Small (Multilingua - Alta Precisione)",
+                ramRequiredMb = 1200,
+                sizeMb = 375,
+                isIdealCap = false,
+                type = ModelType.WHISPER,
+                downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-small/resolve/main/",
+                requiredFiles = listOf("small-encoder.int8.onnx", "small-decoder.int8.onnx", "small-tokens.txt")
             )
         )
     }
