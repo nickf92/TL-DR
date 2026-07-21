@@ -1,5 +1,6 @@
 package it.tldl.app.ui
 
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
@@ -12,8 +13,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import it.tldl.app.core.stt.LocalTextCleaner
+import it.tldl.app.core.stt.ModelManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,13 +24,15 @@ fun TranscriptionBottomSheet(
     progressPercent: Int,
     transcribedText: String,
     isFinished: Boolean,
-    onCopyClick: () -> Unit,
-    onShareClick: () -> Unit,
+    onCopyClick: (String) -> Unit,
+    onShareClick: (String) -> Unit,
     onDismiss: () -> Unit,
     onGoToSettings: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val modelManager = remember { ModelManager(context) }
     var isCleaned by remember { mutableStateOf(false) }
-    val textCleaner = remember { LocalTextCleaner() }
+    val textCleaner = remember { LocalTextCleaner(modelManager) }
 
     val displayText = remember(transcribedText, isCleaned) {
         if (isCleaned && transcribedText.isNotEmpty()) {
@@ -150,16 +155,27 @@ fun TranscriptionBottomSheet(
                         ) {
                             FilterChip(
                                 selected = isCleaned,
-                                onClick = { isCleaned = !isCleaned },
+                                onClick = {
+                                    val nextCleaned = !isCleaned
+                                    isCleaned = nextCleaned
+                                    if (nextCleaned) {
+                                        val cleaned = textCleaner.cleanText(transcribedText)
+                                        if (cleaned == transcribedText) {
+                                            Toast.makeText(context, "Testo già pulito (nessun intercalare trovato)", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "Pulizia applicata (${modelManager.getSelectedTextCleanerId()})", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                },
                                 leadingIcon = {
                                     Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
                                 },
-                                label = { Text(if (isCleaned) "Pulito" else "Pulisci LLM") }
+                                label = { Text(if (isCleaned) "Pulito" else "Pulisci Testo") }
                             )
-                            Button(onClick = onCopyClick) {
+                            Button(onClick = { onCopyClick(displayText) }) {
                                 Text("Copia")
                             }
-                            Button(onClick = onShareClick) {
+                            Button(onClick = { onShareClick(displayText) }) {
                                 Text("Condividi")
                             }
                         }

@@ -58,11 +58,11 @@ class TransparentShareActivity : ComponentActivity() {
                 progressPercent = progressPercent,
                 transcribedText = transcribedText,
                 isFinished = isFinished,
-                onCopyClick = {
-                    copyToClipboard(transcribedText)
+                onCopyClick = { textToCopy ->
+                    copyToClipboard(textToCopy)
                 },
-                onShareClick = {
-                    shareText(transcribedText)
+                onShareClick = { textToShare ->
+                    shareText(textToShare)
                 },
                 onDismiss = {
                     finish()
