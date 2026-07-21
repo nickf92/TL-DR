@@ -7,6 +7,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,9 +17,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -120,7 +120,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 )
             }
 
-            items(transcriptionModels) { modelState ->
+            items(transcriptionModels, key = { it.info.id }) { modelState ->
                 ModelItem(
                     state = modelState,
                     onDownloadClick = { viewModel.downloadModel(modelState.info) },
@@ -154,7 +154,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Engine Euristico a Regole (Integrato)", style = MaterialTheme.typography.titleMedium)
                             Text("Leggerissimo e immediato. Rimuove intercalari (ehm, cioè) e formatta frasi.", style = MaterialTheme.typography.bodySmall)
-                            if (isRulesSelected) {
+                            AnimatedVisibility(visible = isRulesSelected, enter = fadeIn() + expandVertically()) {
                                 Text("In Uso (Attivo)", color = Color(0xFF2196F3), style = MaterialTheme.typography.labelSmall)
                             }
                         }
@@ -174,7 +174,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 }
             }
 
-            items(cleaningModels) { modelState ->
+            items(cleaningModels, key = { it.info.id }) { modelState ->
                 ModelItem(
                     state = modelState,
                     onDownloadClick = { viewModel.downloadModel(modelState.info) },
@@ -195,6 +195,15 @@ fun ModelItem(
     onDeleteClick: () -> Unit
 ) {
     val model = state.info
+    val animatedProgress by animateFloatAsState(
+        targetValue = state.downloadProgress / 100f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "downloadProgressAnimation"
+    )
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = { if (state.isDownloaded && !state.isSelected) onSelectClick() }
@@ -206,42 +215,54 @@ fun ModelItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(model.name, style = MaterialTheme.typography.titleMedium)
                 Text("Dimensioni: ${model.sizeMb}MB | RAM richiesta: ${model.ramRequiredMb}MB", style = MaterialTheme.typography.bodySmall)
-                if (state.isSelected) {
+                AnimatedVisibility(visible = state.isSelected, enter = fadeIn() + expandVertically()) {
                     Text("In Uso (Attivo)", color = Color(0xFF2196F3), style = MaterialTheme.typography.labelSmall)
-                } else if (model.isIdealCap) {
+                }
+                AnimatedVisibility(visible = !state.isSelected && model.isIdealCap, enter = fadeIn() + expandVertically()) {
                     Text("Consigliato (Smart Default)", color = Color(0xFF4CAF50), style = MaterialTheme.typography.labelSmall)
                 }
-                if (state.error != null) {
-                    Text(state.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                AnimatedVisibility(visible = state.error != null, enter = fadeIn() + expandVertically()) {
+                    Text(state.error ?: "", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                 }
             }
 
-            if (state.isSelected) {
-                FilterChip(
-                    selected = true,
-                    onClick = { },
-                    label = { Text("Attivo") }
-                )
-                Spacer(Modifier.width(4.dp))
-                IconButton(onClick = onDeleteClick) {
-                    Icon(Icons.Default.Delete, contentDescription = "Elimina", tint = MaterialTheme.colorScheme.error)
-                }
-            } else if (state.isDownloaded) {
-                OutlinedButton(onClick = onSelectClick) {
-                    Text("Usa")
-                }
-                Spacer(Modifier.width(4.dp))
-                IconButton(onClick = onDeleteClick) {
-                    Icon(Icons.Default.Delete, contentDescription = "Elimina", tint = MaterialTheme.colorScheme.error)
-                }
-            } else if (state.isDownloading) {
-                CircularProgressIndicator(
-                    progress = { state.downloadProgress / 100f },
-                    modifier = Modifier.size(24.dp)
-                )
-            } else {
-                IconButton(onClick = onDownloadClick) {
-                    Icon(Icons.Default.Download, contentDescription = "Scarica")
+            AnimatedContent(
+                targetState = Triple(state.isSelected, state.isDownloaded, state.isDownloading),
+                transitionSpec = {
+                    (fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + scaleIn(initialScale = 0.8f)) togetherWith
+                    (fadeOut(animationSpec = tween(120)) + scaleOut(targetScale = 0.8f))
+                },
+                label = "actionStateTransition"
+            ) { (isSelected, isDownloaded, isDownloading) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isSelected) {
+                        FilterChip(
+                            selected = true,
+                            onClick = { },
+                            label = { Text("Attivo") }
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        IconButton(onClick = onDeleteClick) {
+                            Icon(Icons.Default.Delete, contentDescription = "Elimina", tint = MaterialTheme.colorScheme.error)
+                        }
+                    } else if (isDownloaded) {
+                        OutlinedButton(onClick = onSelectClick) {
+                            Text("Usa")
+                        }
+                        Spacer(Modifier.width(4.dp))
+                        IconButton(onClick = onDeleteClick) {
+                            Icon(Icons.Default.Delete, contentDescription = "Elimina", tint = MaterialTheme.colorScheme.error)
+                        }
+                    } else if (isDownloading) {
+                        CircularProgressIndicator(
+                            progress = { animatedProgress },
+                            modifier = Modifier.size(28.dp)
+                        )
+                    } else {
+                        IconButton(onClick = onDownloadClick) {
+                            Icon(Icons.Default.Download, contentDescription = "Scarica")
+                        }
+                    }
                 }
             }
         }
