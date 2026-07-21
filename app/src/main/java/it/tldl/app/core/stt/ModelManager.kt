@@ -55,18 +55,18 @@ class ModelManager(private val context: Context) {
                 sizeMb = 16,
                 category = ModelCategory.TEXT_CLEANING,
                 type = ModelType.PUNCTUATION_ONNX,
-                downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-punct-ct-transformer-zh-en-vocab-272257-2024-04-12/resolve/main/",
+                downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12/resolve/main/",
                 requiredFiles = listOf("model.onnx")
             ),
             ModelInfo(
                 id = "smollm-onnx",
-                name = "SmolLM-135M (Mini LLM Locale Riscrittura Testo)",
+                name = "SmolLM2-135M (Mini LLM Locale Riscrittura Testo)",
                 ramRequiredMb = 300,
                 sizeMb = 135,
                 category = ModelCategory.TEXT_CLEANING,
                 type = ModelType.SMOLLM_ONNX,
-                downloadUrl = "https://huggingface.co/HuggingFaceTB/SmolLM-135M-Instruct-ONNX/resolve/main/",
-                requiredFiles = listOf("model.onnx")
+                downloadUrl = "https://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX/resolve/main/onnx/",
+                requiredFiles = listOf("model_quantized.onnx")
             )
         )
     }
