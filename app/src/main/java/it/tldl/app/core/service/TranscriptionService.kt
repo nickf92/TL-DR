@@ -159,9 +159,9 @@ class TranscriptionService : Service() {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         if (!isFinished) {
-            // Keep indeterminate = true so Android System UI renders continuous Material Expressive wavy progress animation
-            builder.setProgress(100, progress, true)
-            builder.setSubText(if (progress > 0) "$progress%" else "In lavorazione")
+            val isIndeterminate = progress <= 0
+            builder.setProgress(100, progress, isIndeterminate)
+            builder.setSubText(if (!isIndeterminate) "$progress%" else "In lavorazione")
         } else {
             builder.setProgress(0, 0, false)
             builder.setSubText("Completato")
