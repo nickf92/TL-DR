@@ -7,8 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -61,6 +60,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     val cleaningModels by viewModel.cleaningModels.collectAsState()
     val selectedCleanerId by viewModel.selectedTextCleanerId.collectAsState()
     val availableRam by viewModel.availableRam.collectAsState()
+    val isCleanerEnabled by viewModel.isTextCleanerEnabled.collectAsState()
 
     Scaffold(
         topBar = {
@@ -71,11 +71,14 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp)
         ) {
-            item(contentType = "ram_header") {
+            item(key = "ram_header", contentType = "ram_header") {
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                 ) {
                     Row(
@@ -89,10 +92,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 }
             }
 
-            item(contentType = "cleaner_switch") {
-                val isCleanerEnabled by viewModel.isTextCleanerEnabled.collectAsState()
+            item(key = "cleaner_switch", contentType = "cleaner_switch") {
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Row(
@@ -112,7 +116,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             }
 
             // SECTION 1: TRASCRIZIONE AUDIO
-            item(contentType = "section_header") {
+            item(key = "header_stt", contentType = "section_header") {
                 Text(
                     text = "1. Modelli di Trascrizione Vocale (STT)",
                     style = MaterialTheme.typography.titleLarge,
@@ -135,7 +139,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             }
 
             // SECTION 2: PULIZIA TESTO & PUNTEGGIATURA
-            item(contentType = "section_header") {
+            item(key = "header_cleaner", contentType = "section_header") {
                 Spacer(Modifier.height(16.dp))
                 Text(
                     text = "2. Modelli di Pulizia Testo & Punteggiatura",
@@ -145,11 +149,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             }
 
             // Default Rule-based option (no download required)
-            item(contentType = "rules_item") {
+            item(key = "rules_cleaner", contentType = "rules_item") {
                 val isRulesSelected = selectedCleanerId == "rules"
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    onClick = { if (!isRulesSelected) viewModel.selectTextCleaner("rules") }
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -158,7 +163,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Engine Euristico a Regole (Integrato)", style = MaterialTheme.typography.titleMedium)
                             Text("Leggerissimo e immediato. Rimuove intercalari (ehm, cioè) e formatta frasi.", style = MaterialTheme.typography.bodySmall)
-                            AnimatedVisibility(visible = isRulesSelected, enter = fadeIn() + expandVertically()) {
+                            if (isRulesSelected) {
                                 Text("In Uso (Attivo)", color = Color(0xFF2196F3), style = MaterialTheme.typography.labelSmall)
                             }
                         }
@@ -203,18 +208,8 @@ fun ModelItem(
     onDeleteClick: () -> Unit
 ) {
     val model = state.info
-    val targetProgress = (state.downloadProgress / 100f).coerceIn(0f, 1f)
-    
-    val animatedProgress by animateFloatAsState(
-        targetValue = targetProgress,
-        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-        label = "downloadProgressAnimation"
-    )
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = { if (state.isDownloaded && !state.isSelected) onSelectClick() }
-    ) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -223,27 +218,20 @@ fun ModelItem(
                 Text(model.name, style = MaterialTheme.typography.titleMedium)
                 Text("Dimensioni: ${model.sizeMb}MB | RAM richiesta: ${model.ramRequiredMb}MB", style = MaterialTheme.typography.bodySmall)
                 
-                AnimatedVisibility(visible = state.isSelected, enter = fadeIn() + expandVertically()) {
+                if (state.isSelected) {
                     Text("In Uso (Attivo)", color = Color(0xFF2196F3), style = MaterialTheme.typography.labelSmall)
-                }
-                AnimatedVisibility(visible = !state.isSelected && model.isIdealCap, enter = fadeIn() + expandVertically()) {
+                } else if (model.isIdealCap) {
                     Text("Consigliato (Smart Default)", color = Color(0xFF4CAF50), style = MaterialTheme.typography.labelSmall)
                 }
-                AnimatedVisibility(visible = state.error != null, enter = fadeIn() + expandVertically()) {
-                    Text(state.error ?: "", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                
+                if (state.error != null) {
+                    Text(state.error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                 }
             }
 
-            AnimatedContent(
-                targetState = Triple(state.isSelected, state.isDownloaded, state.isDownloading),
-                transitionSpec = {
-                    (fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.9f)) togetherWith
-                    (fadeOut(animationSpec = tween(100)) + scaleOut(targetScale = 0.9f))
-                },
-                label = "actionStateTransition"
-            ) { (isSelected, isDownloaded, isDownloading) ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (isSelected) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                when {
+                    state.isSelected -> {
                         FilterChip(
                             selected = true,
                             onClick = { },
@@ -253,7 +241,8 @@ fun ModelItem(
                         IconButton(onClick = onDeleteClick) {
                             Icon(Icons.Default.Delete, contentDescription = "Elimina", tint = MaterialTheme.colorScheme.error)
                         }
-                    } else if (isDownloaded) {
+                    }
+                    state.isDownloaded -> {
                         OutlinedButton(onClick = onSelectClick) {
                             Text("Usa")
                         }
@@ -261,12 +250,15 @@ fun ModelItem(
                         IconButton(onClick = onDeleteClick) {
                             Icon(Icons.Default.Delete, contentDescription = "Elimina", tint = MaterialTheme.colorScheme.error)
                         }
-                    } else if (isDownloading) {
+                    }
+                    state.isDownloading -> {
+                        val progressNormalized = (state.downloadProgress / 100f).coerceIn(0f, 1f)
                         CircularProgressIndicator(
-                            progress = { animatedProgress },
+                            progress = { progressNormalized },
                             modifier = Modifier.size(28.dp)
                         )
-                    } else {
+                    }
+                    else -> {
                         IconButton(onClick = onDownloadClick) {
                             Icon(Icons.Default.Download, contentDescription = "Scarica")
                         }
