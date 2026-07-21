@@ -81,6 +81,7 @@ dependencies {
     implementation(libs.smart.exception)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.okhttp)
+    implementation(libs.onnxruntime.android)
 
     // Unit Testing
     testImplementation(libs.junit)

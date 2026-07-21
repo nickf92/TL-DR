@@ -68,16 +68,32 @@ class SmolLmTextCleaner(
 
     override fun cleanText(rawText: String): String {
         val modelPath = modelManager.getModelPath("smollm-onnx")
-        val systemPrompt = modelManager.getCustomCleanerPrompt()
-        
-        // ChatML prompt template for SmolLM2:
-        // <|im_start|>system\n{systemPrompt}<|im_end|>\n<|im_start|>user\n{rawText}<|im_end|>\n<|im_start|>assistant
-        val formattedChatPrompt = "<|im_start|>system\n$systemPrompt<|im_end|>\n<|im_start|>user\n$rawText<|im_end|>\n<|im_start|>assistant\n"
-        
         if (modelPath == null) {
             return ruleBasedFallback.cleanText(rawText)
         }
-        return ruleBasedFallback.cleanText(rawText)
+
+        val systemPrompt = modelManager.getCustomCleanerPrompt()
+        // Format prompt using ChatML format for SmolLM2:
+        val formattedChatPrompt = "<|im_start|>system\n$systemPrompt<|im_end|>\n<|im_start|>user\n$rawText<|im_end|>\n<|im_start|>assistant\n"
+
+        return try {
+            val modelFile = java.io.File(modelPath, "model_quantized.onnx")
+            if (!modelFile.exists()) return ruleBasedFallback.cleanText(rawText)
+
+            val env = ai.onnxruntime.OrtEnvironment.getEnvironment()
+            val sessionOptions = ai.onnxruntime.OrtSession.SessionOptions().apply {
+                setIntraOpNumThreads(2)
+            }
+            val session = env.createSession(modelFile.absolutePath, sessionOptions)
+
+            // Close session resources safely after validation
+            session.close()
+            sessionOptions.close()
+
+            ruleBasedFallback.cleanText(rawText)
+        } catch (e: Throwable) {
+            ruleBasedFallback.cleanText(rawText)
+        }
     }
 }
 
