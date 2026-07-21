@@ -161,7 +161,7 @@ fun TranscriptionBottomSheet(
                                     if (nextCleaned) {
                                         val cleaned = textCleaner.cleanText(transcribedText)
                                         if (cleaned == transcribedText) {
-                                            Toast.makeText(context, "Testo già pulito (nessun intercalare trovato)", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Nessuna modifica necessaria", Toast.LENGTH_SHORT).show()
                                         } else {
                                             Toast.makeText(context, "Pulizia applicata (${modelManager.getSelectedTextCleanerId()})", Toast.LENGTH_SHORT).show()
                                         }

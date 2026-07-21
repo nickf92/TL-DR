@@ -10,8 +10,8 @@ class RuleBasedTextCleaner : TextCleanerEngine {
 
         var cleaned = rawText
 
-        // 1. Remove common filler words (intercalari: ehm, ehmm, ah, um, cioè, mm, eh)
-        val fillerRegex = Regex("(?i)(?<=^|[\\s,.?!])(ehm|ehmm|ah|umm?|cioè|mmm?|eh)(?=$|[\\s,.?!])[\\s,]*")
+        // 1. Remove common Italian spoken filler words (ehm, ehmm, ah, um, cioè, mm, eh, praticamente, diciamo, insomma, guardi, senta, tipo)
+        val fillerRegex = Regex("(?i)(?<=^|[\\s,.?!])(ehm|ehmm|ah|umm?|cioè|mmm?|eh|praticamente|diciamo|insomma|guardi|senta|tipo)(?=$|[\\s,.?!])[\\s,]*")
         cleaned = cleaned.replace(fillerRegex, "")
 
         // 2. Fix spaces around punctuation (, . ? !)
