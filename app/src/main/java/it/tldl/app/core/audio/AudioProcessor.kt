@@ -18,7 +18,11 @@ class AudioProcessor(
             }
         } catch (e: Exception) {
             // Fallback automatico su FFmpeg se il decoder primario fallisce
-            fallbackDecoder.decodeToPcm(file)
+            try {
+                fallbackDecoder.decodeToPcm(file)
+            } catch (fallbackEx: Exception) {
+                throw Exception("Entrambi i decoder hanno fallito. Primario: ${e.message}, Fallback: ${fallbackEx.message}", fallbackEx)
+            }
         }
     }
 }
