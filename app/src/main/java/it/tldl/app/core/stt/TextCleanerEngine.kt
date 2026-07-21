@@ -123,6 +123,33 @@ class SmolLmTextCleaner(
             val inputs = mapOf("input_ids" to inputTensor, "attention_mask" to maskTensor)
             val results = session.run(inputs)
 
+            var generatedTokenText = ""
+            val logitsTensor = results.get(0) as? ai.onnxruntime.OnnxTensor
+            if (logitsTensor != null) {
+                val shape = logitsTensor.info.shape
+                if (shape.size >= 3) {
+                    val seqLen = shape[1].toInt()
+                    val vocabSize = shape[2].toInt()
+                    val floatBuffer = logitsTensor.floatBuffer
+
+                    val offset = (seqLen - 1) * vocabSize
+                    var maxIdx = 0
+                    var maxVal = -Float.MAX_VALUE
+                    val limit = minOf(offset + vocabSize, floatBuffer.capacity())
+                    for (i in offset until limit) {
+                        val valAtI = floatBuffer.get(i)
+                        if (valAtI > maxVal) {
+                            maxVal = valAtI
+                            maxIdx = i - offset
+                        }
+                    }
+                    val decoded = tokenizer.decode(longArrayOf(maxIdx.toLong()))
+                    if (decoded.isNotBlank()) {
+                        generatedTokenText = decoded
+                    }
+                }
+            }
+
             inputTensor.close()
             maskTensor.close()
             results.close()
@@ -130,7 +157,11 @@ class SmolLmTextCleaner(
             sessionOptions.close()
 
             val baseResult = ruleBasedFallback.cleanText(rawText)
-            if (baseResult.isNotBlank()) baseResult else rawText
+            if (generatedTokenText.isNotBlank()) {
+                "$baseResult ($generatedTokenText)".trim()
+            } else {
+                baseResult
+            }
         } catch (e: Throwable) {
             isOrtAvailable = false
             ruleBasedFallback.cleanText(rawText)
