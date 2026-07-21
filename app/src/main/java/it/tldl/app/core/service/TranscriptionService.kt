@@ -25,6 +25,7 @@ class TranscriptionService : Service() {
     private val sttEngine = SherpaOnnxEngine()
     private lateinit var modelManager: ModelManager
     private val textCleaner by lazy { LocalTextCleaner(modelManager) }
+    private var currentTranscriptionJob: Job? = null
 
     companion object {
         const val CHANNEL_ID = "tldl_transcription_channel"
@@ -60,6 +61,7 @@ class TranscriptionService : Service() {
                 }
             }
             ACTION_CANCEL -> {
+                currentTranscriptionJob?.cancel()
                 _state.value = TranscriptionState.Idle
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -70,7 +72,7 @@ class TranscriptionService : Service() {
 
     private fun startTranscription(audioFile: File) {
         _state.value = TranscriptionState.Decoding
-        serviceScope.launch {
+        currentTranscriptionJob = serviceScope.launch {
             try {
                 updateNotification(0, "Decodifica audio...")
 
@@ -108,8 +110,14 @@ class TranscriptionService : Service() {
                 _state.value = TranscriptionState.Success(finalResult)
                 updateNotification(100, "Trascrizione completata! Tocca per aprire.", isFinished = true)
             } catch (e: Exception) {
-                _state.value = TranscriptionState.Error(e.message ?: "Errore sconosciuto")
-                updateNotification(0, "Errore: ${e.message}", isFinished = true)
+                if (e !is CancellationException) {
+                    _state.value = TranscriptionState.Error(e.message ?: "Errore sconosciuto")
+                    updateNotification(0, "Errore: ${e.message}", isFinished = true)
+                }
+            } finally {
+                if (audioFile.exists()) {
+                    audioFile.delete()
+                }
             }
         }
     }
