@@ -76,8 +76,8 @@ class TranscriptionService : Service() {
 
                 val pcmData = audioProcessor.processAudioFile(audioFile)
                 
-                _state.value = TranscriptionState.Transcribing(0, "")
-                updateNotification(0, "Trascrizione in corso...")
+                _state.value = TranscriptionState.Transcribing(5, "Caricamento modello in RAM...")
+                updateNotification(5, "Caricamento modello in memoria RAM...")
 
                 val model = modelManager.getActiveModel()
                 if (model == null) {
@@ -89,7 +89,9 @@ class TranscriptionService : Service() {
                     throw IllegalStateException("Modello ${model.name} non scaricato. Scaricalo nelle impostazioni.")
                 }
 
+                updateNotification(10, "Caricamento ${model.name} in RAM...")
                 sttEngine.initialize(modelPath)
+                updateNotification(20, "Modello pronto in RAM. Avvio trascrizione...")
 
                 val rawResult = sttEngine.transcribeStream(pcmData) { progress, partial ->
                     _state.value = TranscriptionState.Transcribing(progress, partial)

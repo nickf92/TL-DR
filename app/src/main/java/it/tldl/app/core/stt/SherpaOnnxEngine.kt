@@ -142,7 +142,7 @@ class SherpaOnnxEngine : SpeechToTextEngine {
                 fullTextBuilder.append(text)
             }
 
-            val progress = (((i + 1) * 95) / numChunks).coerceIn(1, 95)
+            val progress = (20 + (((i + 1) * 75) / numChunks)).coerceIn(20, 95)
             onProgress(progress, fullTextBuilder.toString())
         }
 
