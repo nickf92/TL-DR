@@ -1,8 +1,14 @@
 package it.tldl.app.core.stt
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +24,11 @@ class ModelDownloadWorker(
     workerParams: WorkerParameters
 ) : CoroutineWorker(context, workerParams) {
 
+    companion object {
+        const val CHANNEL_ID = "tldl_download_channel"
+        const val NOTIFICATION_ID = 2001
+    }
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
@@ -31,6 +42,14 @@ class ModelDownloadWorker(
         val fileName = inputData.getString("fileName") ?: return@withContext Result.failure()
 
         Log.d("ModelDownloadWorker", "Starting download: $fileName from $modelUrl")
+
+        createNotificationChannel()
+
+        try {
+            setForeground(createForegroundInfo(modelId, fileName, 0))
+        } catch (e: Exception) {
+            Log.w("ModelDownloadWorker", "Failed to set foreground: ${e.message}")
+        }
 
         val modelsDir = File(applicationContext.filesDir, "models/$modelId")
         if (!modelsDir.exists()) modelsDir.mkdirs()
@@ -65,6 +84,7 @@ class ModelDownloadWorker(
                 val output = FileOutputStream(tempFile)
                 val buffer = ByteArray(32768) // Larger buffer for ONNX files
                 var bytesRead: Int
+                var lastProgress = 0
 
                 while (input.read(buffer).also { bytesRead = it } != -1) {
                     output.write(buffer, 0, bytesRead)
@@ -72,7 +92,15 @@ class ModelDownloadWorker(
                     
                     if (totalBytes > 0) {
                         val progress = (downloadedBytes * 100 / totalBytes).toInt()
-                        setProgress(workDataOf("progress" to progress))
+                        if (progress - lastProgress >= 5 || progress == 100) {
+                            lastProgress = progress
+                            setProgress(workDataOf("progress" to progress))
+                            try {
+                                setForeground(createForegroundInfo(modelId, fileName, progress))
+                            } catch (e: Exception) {
+                                // Ignore notification updates if service state changes
+                            }
+                        }
                     }
                 }
 
@@ -89,6 +117,7 @@ class ModelDownloadWorker(
 
                 if (isSuccess) {
                     Log.d("ModelDownloadWorker", "Download completed and renamed: $fileName")
+                    showCompletionNotification(modelId, fileName)
                     Result.success()
                 } else {
                     Log.e("ModelDownloadWorker", "Failed to rename temp file for $fileName")
@@ -100,5 +129,49 @@ class ModelDownloadWorker(
             if (tempFile.exists()) tempFile.delete()
             Result.failure()
         }
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Download Modelli TL;DL",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Mostra l'avanzamento del download dei modelli AI per la trascrizione"
+            }
+            val manager = applicationContext.getSystemService(NotificationManager::class.java)
+            manager?.createNotificationChannel(channel)
+        }
+    }
+
+    private fun createForegroundInfo(modelId: String, fileName: String, progress: Int): ForegroundInfo {
+        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setContentTitle("TL;DL - Download Modello")
+            .setContentText("Scaricando $fileName ($progress%)")
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setProgress(100, progress, progress == 0)
+            .setOngoing(true)
+            .build()
+
+        val notificationId = NOTIFICATION_ID + (modelId.hashCode() and 0x7FFF)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            ForegroundInfo(notificationId, notification)
+        }
+    }
+
+    private fun showCompletionNotification(modelId: String, fileName: String) {
+        val manager = applicationContext.getSystemService(NotificationManager::class.java) ?: return
+        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setContentTitle("TL;DL - Download Completato")
+            .setContentText("File $fileName scaricato con successo.")
+            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setAutoCancel(true)
+            .build()
+
+        val notificationId = NOTIFICATION_ID + (modelId.hashCode() and 0x7FFF)
+        manager.notify(notificationId, notification)
     }
 }
