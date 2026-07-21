@@ -105,19 +105,48 @@ class SherpaOnnxEngine : SpeechToTextEngine {
         onProgress: (progressPercent: Int, partialText: String) -> Unit
     ): String {
         val engine = offlineRecognizer!!
-        val stream = engine.createStream()
         val floatSamples = FloatArray(samples.size) { samples[it] / 32768.0f }
+        val totalSamples = floatSamples.size
         
-        onProgress(10, "Avvio Whisper...")
-        stream.acceptWaveform(floatSamples, 16000)
-        onProgress(50, "Elaborazione Whisper...")
-        engine.decode(stream)
-        
-        val result = engine.getResult(stream).text
-        onProgress(100, result)
-        
-        stream.release()
-        return result
+        // Whisper operates on 30-second windows (30s * 16000Hz = 480,000 samples)
+        val windowSize = 30 * 16000
+
+        if (totalSamples <= windowSize) {
+            val stream = engine.createStream()
+            onProgress(10, "Avvio Whisper...")
+            stream.acceptWaveform(floatSamples, 16000)
+            onProgress(50, "Elaborazione Whisper...")
+            engine.decode(stream)
+            val result = engine.getResult(stream).text
+            stream.release()
+            onProgress(100, result)
+            return result
+        }
+
+        val fullTextBuilder = StringBuilder()
+        val numChunks = (totalSamples + windowSize - 1) / windowSize
+
+        for (i in 0 until numChunks) {
+            val start = i * windowSize
+            val end = minOf(start + windowSize, totalSamples)
+            val chunk = floatSamples.copyOfRange(start, end)
+
+            val stream = engine.createStream()
+            stream.acceptWaveform(chunk, 16000)
+            engine.decode(stream)
+            val text = engine.getResult(stream).text.trim()
+            stream.release()
+
+            if (text.isNotEmpty()) {
+                if (fullTextBuilder.isNotEmpty()) fullTextBuilder.append(" ")
+                fullTextBuilder.append(text)
+            }
+
+            val progress = ((i + 1) * 100) / numChunks
+            onProgress(progress, fullTextBuilder.toString())
+        }
+
+        return fullTextBuilder.toString()
     }
 
     override fun release() {

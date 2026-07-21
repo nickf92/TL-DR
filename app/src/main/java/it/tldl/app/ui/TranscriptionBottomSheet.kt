@@ -92,7 +92,7 @@ fun TranscriptionBottomSheet(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 320.dp)
+                        .heightIn(min = 100.dp, max = 400.dp)
                         .padding(vertical = 8.dp)
                 ) {
                     Box(
