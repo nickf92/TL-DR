@@ -59,6 +59,14 @@ class ModelManager(private val context: Context) {
     
     private val prefs = context.getSharedPreferences("tldl_prefs", Context.MODE_PRIVATE)
 
+    fun isTextCleanerEnabled(): Boolean {
+        return prefs.getBoolean("enable_text_cleaner", false)
+    }
+
+    fun setTextCleanerEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("enable_text_cleaner", enabled).apply()
+    }
+
     fun getSelectedModelId(): String? {
         return prefs.getString("selected_model_id", null)
     }

@@ -1,13 +1,17 @@
 package it.tldl.app.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import it.tldl.app.core.stt.LocalTextCleaner
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -20,6 +24,17 @@ fun TranscriptionBottomSheet(
     onDismiss: () -> Unit,
     onGoToSettings: () -> Unit = {}
 ) {
+    var isCleaned by remember { mutableStateOf(false) }
+    val textCleaner = remember { LocalTextCleaner() }
+
+    val displayText = remember(transcribedText, isCleaned) {
+        if (isCleaned && transcribedText.isNotEmpty()) {
+            textCleaner.cleanText(transcribedText)
+        } else {
+            transcribedText
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -39,9 +54,8 @@ fun TranscriptionBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (transcribedText.startsWith("Errore: Modello") && isFinished) {
-                // Special case for missing model
                 Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.Warning,
+                    imageVector = Icons.Default.Warning,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(48.dp)
@@ -78,21 +92,37 @@ fun TranscriptionBottomSheet(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(max = 320.dp)
                         .padding(vertical = 8.dp)
                 ) {
-                    Text(
-                        text = transcribedText.ifEmpty { "Nessun testo trascritto." },
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = displayText.ifEmpty { "Nessun testo trascritto." },
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    FilterChip(
+                        selected = isCleaned,
+                        onClick = { isCleaned = !isCleaned },
+                        leadingIcon = {
+                            Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                        label = { Text(if (isCleaned) "Pulito" else "Pulisci LLM") }
+                    )
                     Button(onClick = onCopyClick) {
                         Text("Copia")
                     }

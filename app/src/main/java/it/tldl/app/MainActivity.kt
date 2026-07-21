@@ -88,6 +88,28 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 }
             }
 
+            item {
+                val isCleanerEnabled by viewModel.isTextCleanerEnabled.collectAsState()
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Pulizia Testo Sperimentale (LLM/Post-Processing)", style = MaterialTheme.typography.titleMedium)
+                            Text("Rimuove intercalari (ehm, cioè), aggiunge punteggiatura e corregge le maiuscole.", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Switch(
+                            checked = isCleanerEnabled,
+                            onCheckedChange = { viewModel.toggleTextCleaner(it) }
+                        )
+                    }
+                }
+            }
+
             items(models) { modelState ->
                 ModelItem(
                     state = modelState,

@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import it.tldl.app.core.audio.AudioProcessor
+import it.tldl.app.core.stt.LocalTextCleaner
 import it.tldl.app.core.stt.ModelManager
 import it.tldl.app.core.stt.SherpaOnnxEngine
 import kotlinx.coroutines.*
@@ -22,6 +23,7 @@ class TranscriptionService : Service() {
     
     private val audioProcessor = AudioProcessor()
     private val sttEngine = SherpaOnnxEngine()
+    private val textCleaner = LocalTextCleaner()
     private lateinit var modelManager: ModelManager
 
     companion object {
@@ -89,12 +91,19 @@ class TranscriptionService : Service() {
 
                 sttEngine.initialize(modelPath)
 
-                val result = sttEngine.transcribeStream(pcmData) { progress, partial ->
+                val rawResult = sttEngine.transcribeStream(pcmData) { progress, partial ->
                     _state.value = TranscriptionState.Transcribing(progress, partial)
                     updateNotification(progress, "Trascrizione: $progress%")
                 }
 
-                _state.value = TranscriptionState.Success(result)
+                val finalResult = if (modelManager.isTextCleanerEnabled()) {
+                    updateNotification(98, "Pulizia testo con Post-Processor...")
+                    textCleaner.cleanText(rawResult)
+                } else {
+                    rawResult
+                }
+
+                _state.value = TranscriptionState.Success(finalResult)
                 updateNotification(100, "Completato")
             } catch (e: Exception) {
                 _state.value = TranscriptionState.Error(e.message ?: "Errore sconosciuto")

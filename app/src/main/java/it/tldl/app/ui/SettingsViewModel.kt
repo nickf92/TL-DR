@@ -32,9 +32,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _availableRam = MutableStateFlow(0L)
     val availableRam = _availableRam.asStateFlow()
 
+    private val _isTextCleanerEnabled = MutableStateFlow(false)
+    val isTextCleanerEnabled = _isTextCleanerEnabled.asStateFlow()
+
     init {
         refreshModels()
         _availableRam.value = RamCalculator.getAvailableRamMb(application)
+        _isTextCleanerEnabled.value = modelManager.isTextCleanerEnabled()
+    }
+
+    fun toggleTextCleaner(enabled: Boolean) {
+        modelManager.setTextCleanerEnabled(enabled)
+        _isTextCleanerEnabled.value = enabled
     }
 
     fun refreshModels() {
