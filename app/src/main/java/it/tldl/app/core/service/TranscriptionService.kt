@@ -154,11 +154,19 @@ class TranscriptionService : Service() {
             .setContentIntent(pendingIntent)
             .setOngoing(!isFinished)
             .setAutoCancel(isFinished)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         if (!isFinished) {
-            builder.setProgress(100, progress, progress == 0)
+            val isIndeterminate = progress <= 0
+            builder.setProgress(100, progress, isIndeterminate)
+            if (!isIndeterminate) {
+                builder.setSubText("$progress%")
+            } else {
+                builder.setSubText("In lavorazione")
+            }
         } else {
             builder.setProgress(0, 0, false)
+            builder.setSubText("Completato")
             builder.addAction(
                 android.R.drawable.ic_menu_view,
                 "Apri",
