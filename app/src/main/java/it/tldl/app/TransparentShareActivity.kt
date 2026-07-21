@@ -29,6 +29,13 @@ class TransparentShareActivity : ComponentActivity() {
                 @Suppress("DEPRECATION")
                 intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
             }
+        } else if (intent?.action == Intent.ACTION_SEND_MULTIPLE) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)?.firstOrNull()
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)?.firstOrNull()
+            }
         } else null
 
         if (audioUri != null) {
@@ -71,13 +78,26 @@ class TransparentShareActivity : ComponentActivity() {
                     val intent = Intent(this@TransparentShareActivity, MainActivity::class.java)
                     startActivity(intent)
                     finish()
+                },
+                onCancelClick = {
+                    val cancelIntent = Intent(this@TransparentShareActivity, TranscriptionService::class.java).apply {
+                        action = TranscriptionService.ACTION_CANCEL
+                    }
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        startForegroundService(cancelIntent)
+                    } else {
+                        startService(cancelIntent)
+                    }
+                    finish()
                 }
             )
         }
     }
 
     private fun startTranscriptionService(uri: Uri) {
-        val cacheFile = File(cacheDir, "input_audio_${System.currentTimeMillis()}.opus")
+        val mimeType = contentResolver.getType(uri)
+        val extension = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType) ?: "audio"
+        val cacheFile = File(cacheDir, "input_audio_${System.currentTimeMillis()}.$extension")
         try {
             contentResolver.openInputStream(uri)?.use { input ->
                 FileOutputStream(cacheFile).use { output ->
