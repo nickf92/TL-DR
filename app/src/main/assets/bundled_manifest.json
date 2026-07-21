@@ -1,0 +1,29 @@
+[
+  {
+    "id": "sherpa-onnx-whisper-tiny",
+    "name": "Whisper Tiny (Multi-lingua)",
+    "engine": "sherpa-onnx",
+    "sizeMb": 75,
+    "ramRequiredMb": 400,
+    "downloadUrl": "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/model.onnx",
+    "isIdealCap": false
+  },
+  {
+    "id": "sherpa-onnx-sensevoice-small",
+    "name": "SenseVoice Small (Raccomandato)",
+    "engine": "sherpa-onnx",
+    "sizeMb": 220,
+    "ramRequiredMb": 1000,
+    "downloadUrl": "https://huggingface.co/csukuangfj/sherpa-onnx-sensevoice-small/resolve/main/model.onnx",
+    "isIdealCap": true
+  },
+  {
+    "id": "sherpa-onnx-moonshine-base",
+    "name": "Moonshine Base",
+    "engine": "sherpa-onnx",
+    "sizeMb": 140,
+    "ramRequiredMb": 750,
+    "downloadUrl": "https://huggingface.co/csukuangfj/sherpa-onnx-moonshine-base/resolve/main/model.onnx",
+    "isIdealCap": false
+  }
+]
