@@ -67,6 +67,15 @@ class ModelManager(private val context: Context) {
         prefs.edit().putString("selected_model_id", modelId).apply()
     }
 
+    fun deleteModel(modelId: String): Boolean {
+        val modelFolder = File(modelsDir, modelId)
+        val success = if (modelFolder.exists()) modelFolder.deleteRecursively() else false
+        if (getSelectedModelId() == modelId) {
+            prefs.edit().remove("selected_model_id").apply()
+        }
+        return success
+    }
+
     fun getActiveModel(): ModelInfo? {
         val selectedId = getSelectedModelId()
         if (selectedId != null && isModelDownloaded(selectedId)) {

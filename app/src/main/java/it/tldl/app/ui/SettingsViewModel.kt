@@ -59,6 +59,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun deleteModel(modelId: String) {
+        viewModelScope.launch {
+            modelManager.deleteModel(modelId)
+            refreshModels()
+        }
+    }
+
     fun downloadModel(model: ModelInfo) {
         if (modelManager.isModelDownloaded(model.id)) return
         

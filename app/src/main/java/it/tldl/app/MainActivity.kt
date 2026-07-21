@@ -1,12 +1,17 @@
 package it.tldl.app
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
@@ -17,14 +22,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import it.tldl.app.core.stt.ModelInfo
 import it.tldl.app.ui.ModelItemState
 import it.tldl.app.ui.SettingsViewModel
 
 class MainActivity : ComponentActivity() {
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ -> }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
         setContent {
             Surface(
                 modifier = Modifier.fillMaxSize(),
@@ -73,7 +92,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 ModelItem(
                     state = modelState,
                     onDownloadClick = { viewModel.downloadModel(modelState.info) },
-                    onSelectClick = { viewModel.selectModel(modelState.info.id) }
+                    onSelectClick = { viewModel.selectModel(modelState.info.id) },
+                    onDeleteClick = { viewModel.deleteModel(modelState.info.id) }
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -85,7 +105,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
 fun ModelItem(
     state: ModelItemState,
     onDownloadClick: () -> Unit,
-    onSelectClick: () -> Unit
+    onSelectClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     val model = state.info
     Card(
@@ -115,9 +136,17 @@ fun ModelItem(
                     onClick = { },
                     label = { Text("Attivo") }
                 )
+                Spacer(Modifier.width(4.dp))
+                IconButton(onClick = onDeleteClick) {
+                    Icon(Icons.Default.Delete, contentDescription = "Elimina", tint = MaterialTheme.colorScheme.error)
+                }
             } else if (state.isDownloaded) {
                 OutlinedButton(onClick = onSelectClick) {
                     Text("Usa")
+                }
+                Spacer(Modifier.width(4.dp))
+                IconButton(onClick = onDeleteClick) {
+                    Icon(Icons.Default.Delete, contentDescription = "Elimina", tint = MaterialTheme.colorScheme.error)
                 }
             } else if (state.isDownloading) {
                 CircularProgressIndicator(
