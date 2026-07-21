@@ -46,6 +46,8 @@ class SherpaOnnxEngine : SpeechToTextEngine {
                     whisper = OfflineWhisperModelConfig(
                         encoder = encoder.absolutePath,
                         decoder = decoder.absolutePath,
+                        language = "it",
+                        task = "transcribe"
                     ),
                     tokens = tokens.absolutePath,
                     numThreads = 2,
