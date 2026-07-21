@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import it.tldl.app.core.stt.ModelInfo
 import it.tldl.app.ui.ModelItemState
 import it.tldl.app.ui.SettingsViewModel
 
@@ -61,6 +62,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     val availableRam by viewModel.availableRam.collectAsState()
     val isCleanerEnabled by viewModel.isTextCleanerEnabled.collectAsState()
 
+    val onDownload = remember(viewModel) { { info: ModelInfo -> viewModel.downloadModel(info) } }
+    val onSelectSTT = remember(viewModel) { { id: String -> viewModel.selectModel(id) } }
+    val onSelectCleaner = remember(viewModel) { { id: String -> viewModel.selectTextCleaner(id) } }
+    val onDelete = remember(viewModel) { { id: String -> viewModel.deleteModel(id) } }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("TL;DL - Impostazioni Modelli") })
@@ -77,6 +83,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             item(key = "ram_header", contentType = "ram_header") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                 ) {
                     Row(
@@ -93,6 +100,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             item(key = "cleaner_switch", contentType = "cleaner_switch") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Row(
@@ -127,9 +135,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             ) { modelState ->
                 ModelItem(
                     state = modelState,
-                    onDownloadClick = { viewModel.downloadModel(modelState.info) },
-                    onSelectClick = { viewModel.selectModel(modelState.info.id) },
-                    onDeleteClick = { viewModel.deleteModel(modelState.info.id) }
+                    onDownloadClick = onDownload,
+                    onSelectClick = onSelectSTT,
+                    onDeleteClick = onDelete
                 )
             }
 
@@ -145,7 +153,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             // Default Rule-based option (no download required)
             item(key = "rules_cleaner", contentType = "rules_item") {
                 val isRulesSelected = selectedCleanerId == "rules"
-                Card(modifier = Modifier.fillMaxWidth()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -159,13 +170,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         }
 
                         if (isRulesSelected) {
-                            FilterChip(
-                                selected = true,
+                            AssistChip(
                                 onClick = { },
-                                label = { Text("Attivo") }
+                                label = { Text("Attivo") },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    labelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
                             )
                         } else {
-                            OutlinedButton(onClick = { viewModel.selectTextCleaner("rules") }) {
+                            OutlinedButton(onClick = { onSelectCleaner("rules") }) {
                                 Text("Usa")
                             }
                         }
@@ -180,9 +194,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             ) { modelState ->
                 ModelItem(
                     state = modelState,
-                    onDownloadClick = { viewModel.downloadModel(modelState.info) },
-                    onSelectClick = { viewModel.selectModel(modelState.info.id) },
-                    onDeleteClick = { viewModel.deleteModel(modelState.info.id) }
+                    onDownloadClick = onDownload,
+                    onSelectClick = onSelectCleaner,
+                    onDeleteClick = onDelete
                 )
             }
         }
@@ -192,13 +206,17 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
 @Composable
 fun ModelItem(
     state: ModelItemState,
-    onDownloadClick: () -> Unit,
-    onSelectClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDownloadClick: (ModelInfo) -> Unit,
+    onSelectClick: (String) -> Unit,
+    onDeleteClick: (String) -> Unit
 ) {
     val model = state.info
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -219,38 +237,36 @@ fun ModelItem(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                when {
-                    state.isSelected -> {
-                        FilterChip(
-                            selected = true,
-                            onClick = { },
-                            label = { Text("Attivo") }
+                if (state.isSelected) {
+                    AssistChip(
+                        onClick = { },
+                        label = { Text("Attivo") },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        Spacer(Modifier.width(4.dp))
-                        IconButton(onClick = onDeleteClick) {
-                            Icon(Icons.Default.Delete, contentDescription = "Elimina", tint = MaterialTheme.colorScheme.error)
-                        }
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    IconButton(onClick = { onDeleteClick(model.id) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Elimina", tint = MaterialTheme.colorScheme.error)
                     }
-                    state.isDownloaded -> {
-                        OutlinedButton(onClick = onSelectClick) {
-                            Text("Usa")
-                        }
-                        Spacer(Modifier.width(4.dp))
-                        IconButton(onClick = onDeleteClick) {
-                            Icon(Icons.Default.Delete, contentDescription = "Elimina", tint = MaterialTheme.colorScheme.error)
-                        }
+                } else if (state.isDownloaded) {
+                    OutlinedButton(onClick = { onSelectClick(model.id) }) {
+                        Text("Usa")
                     }
-                    state.isDownloading -> {
-                        val progressNormalized = (state.downloadProgress / 100f).coerceIn(0f, 1f)
-                        CircularProgressIndicator(
-                            progress = { progressNormalized },
-                            modifier = Modifier.size(28.dp)
-                        )
+                    Spacer(Modifier.width(4.dp))
+                    IconButton(onClick = { onDeleteClick(model.id) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Elimina", tint = MaterialTheme.colorScheme.error)
                     }
-                    else -> {
-                        IconButton(onClick = onDownloadClick) {
-                            Icon(Icons.Default.Download, contentDescription = "Scarica")
-                        }
+                } else if (state.isDownloading) {
+                    val progressNormalized = (state.downloadProgress / 100f).coerceIn(0f, 1f)
+                    CircularProgressIndicator(
+                        progress = { progressNormalized },
+                        modifier = Modifier.size(28.dp)
+                    )
+                } else {
+                    IconButton(onClick = { onDownloadClick(model) }) {
+                        Icon(Icons.Default.Download, contentDescription = "Scarica")
                     }
                 }
             }
