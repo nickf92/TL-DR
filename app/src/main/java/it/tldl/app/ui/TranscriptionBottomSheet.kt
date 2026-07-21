@@ -27,6 +27,7 @@ fun TranscriptionBottomSheet(
     onCopyClick: (String) -> Unit,
     onShareClick: (String) -> Unit,
     onDismiss: () -> Unit,
+    onCancelClick: () -> Unit,
     onGoToSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -116,6 +117,10 @@ fun TranscriptionBottomSheet(
                             text = "Elaborazione in corso ($progressPercent%)...",
                             style = MaterialTheme.typography.bodyMedium
                         )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedButton(onClick = onCancelClick) {
+                            Text("Annulla", color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 } else {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
