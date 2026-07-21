@@ -77,9 +77,12 @@ class TranscriptionService : Service() {
                 _state.value = TranscriptionState.Transcribing(0, "")
                 updateNotification(0, "Trascrizione in corso...")
 
-                val model = modelManager.getSmartDefaultModel()
+                val model = modelManager.getActiveModel()
+                if (model == null) {
+                    throw IllegalStateException("Nessun modello scaricato. Apri l'app per scaricare un modello.")
+                }
+
                 val modelPath = modelManager.getModelPath(model.id)
-                
                 if (modelPath == null) {
                     throw IllegalStateException("Modello ${model.name} non scaricato. Scaricalo nelle impostazioni.")
                 }

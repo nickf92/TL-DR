@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 data class ModelItemState(
     val info: ModelInfo,
     val isDownloaded: Boolean,
+    val isSelected: Boolean = false,
     val isDownloading: Boolean = false,
     val downloadProgress: Int = 0,
     val error: String? = null
@@ -39,12 +40,22 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun refreshModels() {
         viewModelScope.launch {
             val available = modelManager.getAvailableModels()
+            val activeModel = modelManager.getActiveModel()
             _models.value = available.map { info ->
+                val downloaded = modelManager.isModelDownloaded(info.id)
                 ModelItemState(
                     info = info,
-                    isDownloaded = modelManager.isModelDownloaded(info.id)
+                    isDownloaded = downloaded,
+                    isSelected = downloaded && activeModel?.id == info.id
                 )
             }
+        }
+    }
+
+    fun selectModel(modelId: String) {
+        if (modelManager.isModelDownloaded(modelId)) {
+            modelManager.setSelectedModel(modelId)
+            refreshModels()
         }
     }
 

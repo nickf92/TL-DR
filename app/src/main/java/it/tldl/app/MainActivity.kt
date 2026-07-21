@@ -72,7 +72,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             items(models) { modelState ->
                 ModelItem(
                     state = modelState,
-                    onDownloadClick = { viewModel.downloadModel(modelState.info) }
+                    onDownloadClick = { viewModel.downloadModel(modelState.info) },
+                    onSelectClick = { viewModel.selectModel(modelState.info.id) }
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -81,9 +82,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
 }
 
 @Composable
-fun ModelItem(state: ModelItemState, onDownloadClick: () -> Unit) {
+fun ModelItem(
+    state: ModelItemState,
+    onDownloadClick: () -> Unit,
+    onSelectClick: () -> Unit
+) {
     val model = state.info
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = { if (state.isDownloaded && !state.isSelected) onSelectClick() }
+    ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -91,7 +99,9 @@ fun ModelItem(state: ModelItemState, onDownloadClick: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(model.name, style = MaterialTheme.typography.titleMedium)
                 Text("RAM richiesta: ${model.ramRequiredMb}MB", style = MaterialTheme.typography.bodySmall)
-                if (model.isIdealCap) {
+                if (state.isSelected) {
+                    Text("In Uso (Attivo)", color = Color(0xFF2196F3), style = MaterialTheme.typography.labelSmall)
+                } else if (model.isIdealCap) {
                     Text("Consigliato (Smart Default)", color = Color(0xFF4CAF50), style = MaterialTheme.typography.labelSmall)
                 }
                 if (state.error != null) {
@@ -99,8 +109,16 @@ fun ModelItem(state: ModelItemState, onDownloadClick: () -> Unit) {
                 }
             }
 
-            if (state.isDownloaded) {
-                Text("Scaricato", color = Color(0xFF4CAF50))
+            if (state.isSelected) {
+                FilterChip(
+                    selected = true,
+                    onClick = { },
+                    label = { Text("Attivo") }
+                )
+            } else if (state.isDownloaded) {
+                OutlinedButton(onClick = onSelectClick) {
+                    Text("Usa")
+                }
             } else if (state.isDownloading) {
                 CircularProgressIndicator(
                     progress = { state.downloadProgress / 100f },

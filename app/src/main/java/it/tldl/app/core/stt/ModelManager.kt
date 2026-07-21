@@ -57,11 +57,26 @@ class ModelManager(private val context: Context) {
         return if (isModelDownloaded(modelId)) modelFolder else null
     }
     
-    fun getSmartDefaultModel(): ModelInfo {
+    private val prefs = context.getSharedPreferences("tldl_prefs", Context.MODE_PRIVATE)
+
+    fun getSelectedModelId(): String? {
+        return prefs.getString("selected_model_id", null)
+    }
+
+    fun setSelectedModel(modelId: String) {
+        prefs.edit().putString("selected_model_id", modelId).apply()
+    }
+
+    fun getActiveModel(): ModelInfo? {
+        val selectedId = getSelectedModelId()
+        if (selectedId != null && isModelDownloaded(selectedId)) {
+            getAvailableModels().find { it.id == selectedId }?.let { return it }
+        }
+
+        val downloaded = getAvailableModels().filter { isModelDownloaded(it.id) }
+        if (downloaded.isEmpty()) return null
+
         val freeRam = RamCalculator.getAvailableRamMb(context)
-        val models = getAvailableModels().sortedByDescending { it.ramRequiredMb }
-        
-        // Trova il modello migliore che sta nella RAM, ma non superare l'IdealCap se possibile
-        return models.firstOrNull { it.ramRequiredMb < freeRam * 0.7 } ?: models.last()
+        return RamCalculator.selectSmartDefaultModel(downloaded, freeRam) ?: downloaded.first()
     }
 }
