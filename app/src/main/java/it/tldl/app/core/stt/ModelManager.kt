@@ -106,6 +106,17 @@ class ModelManager(private val context: Context) {
         prefs.edit().putString("selected_text_cleaner_id", cleanerId).apply()
     }
 
+    fun getCustomCleanerPrompt(): String {
+        return prefs.getString(
+            "custom_cleaner_prompt",
+            "Correggi la punteggiatura, gli errori di sintassi e rimuovi gli intercalari dal seguente testo in italiano senza modificarne il significato."
+        ) ?: "Correggi la punteggiatura, gli errori di sintassi e rimuovi gli intercalari dal seguente testo in italiano senza modificarne il significato."
+    }
+
+    fun setCustomCleanerPrompt(prompt: String) {
+        prefs.edit().putString("custom_cleaner_prompt", prompt).apply()
+    }
+
     fun deleteModel(modelId: String): Boolean {
         val modelFolder = File(modelsDir, modelId)
         val success = if (modelFolder.exists()) modelFolder.deleteRecursively() else false

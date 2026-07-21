@@ -52,11 +52,16 @@ class SmolLmTextCleaner(
 
     override fun cleanText(rawText: String): String {
         val modelPath = modelManager.getModelPath("smollm-onnx")
+        val systemPrompt = modelManager.getCustomCleanerPrompt()
+        
+        // ChatML prompt template for SmolLM2:
+        // <|im_start|>system\n{systemPrompt}<|im_end|>\n<|im_start|>user\n{rawText}<|im_end|>\n<|im_start|>assistant
+        val formattedChatPrompt = "<|im_start|>system\n$systemPrompt<|im_end|>\n<|im_start|>user\n$rawText<|im_end|>\n<|im_start|>assistant\n"
+        
         if (modelPath == null) {
             return ruleBasedFallback.cleanText(rawText)
         }
-        val baseCleaned = ruleBasedFallback.cleanText(rawText)
-        return baseCleaned
+        return ruleBasedFallback.cleanText(rawText)
     }
 }
 
