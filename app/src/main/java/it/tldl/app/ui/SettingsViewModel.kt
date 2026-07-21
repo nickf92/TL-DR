@@ -13,6 +13,7 @@ import it.tldl.app.core.stt.RamCalculator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 data class ModelItemState(
     val info: ModelInfo,
@@ -149,7 +150,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
                     val errorMsg = if (hasFailed) "Errore durante il download. Riprova." else null
                     
-                    updateModelState(model.id, isDownloading = isRunning, progress = totalProgress, error = errorMsg)
+                    val currentItem = _transcriptionModels.value.find { it.info.id == model.id }
+                        ?: _cleaningModels.value.find { it.info.id == model.id }
+
+                    val shouldUpdate = currentItem == null || 
+                        currentItem.isDownloading != isRunning || 
+                        abs(currentItem.downloadProgress - totalProgress) >= 2 || 
+                        (hasFailed && currentItem.error == null)
+
+                    if (shouldUpdate) {
+                        updateModelState(model.id, isDownloading = isRunning, progress = totalProgress, error = errorMsg)
+                    }
                     
                     if (workInfos.all { it.state == WorkInfo.State.SUCCEEDED }) {
                         refreshModels()

@@ -149,6 +149,8 @@ class TranscriptionService : Service() {
             .setContentTitle("TL;DL Trascrizione Vocale")
             .setContentText(statusText)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setOnlyAlertOnce(true)
             .setContentIntent(pendingIntent)
             .setOngoing(!isFinished)
             .setAutoCancel(isFinished)

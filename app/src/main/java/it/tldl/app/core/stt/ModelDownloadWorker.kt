@@ -144,6 +144,8 @@ class ModelDownloadWorker(
             .setContentTitle("TL;DL - Download Modello")
             .setContentText("Scaricando $fileName ($progress%)")
             .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setOnlyAlertOnce(true)
             .setProgress(100, progress, progress == 0)
             .setOngoing(true)
             .build()

@@ -73,7 +73,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            item {
+            item(contentType = "ram_header") {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
@@ -89,7 +89,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 }
             }
 
-            item {
+            item(contentType = "cleaner_switch") {
                 val isCleanerEnabled by viewModel.isTextCleanerEnabled.collectAsState()
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
@@ -112,7 +112,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             }
 
             // SECTION 1: TRASCRIZIONE AUDIO
-            item {
+            item(contentType = "section_header") {
                 Text(
                     text = "1. Modelli di Trascrizione Vocale (STT)",
                     style = MaterialTheme.typography.titleLarge,
@@ -120,7 +120,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 )
             }
 
-            items(transcriptionModels, key = { it.info.id }) { modelState ->
+            items(
+                items = transcriptionModels,
+                key = { it.info.id },
+                contentType = { "model_item" }
+            ) { modelState ->
                 ModelItem(
                     state = modelState,
                     onDownloadClick = { viewModel.downloadModel(modelState.info) },
@@ -131,7 +135,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             }
 
             // SECTION 2: PULIZIA TESTO & PUNTEGGIATURA
-            item {
+            item(contentType = "section_header") {
                 Spacer(Modifier.height(16.dp))
                 Text(
                     text = "2. Modelli di Pulizia Testo & Punteggiatura",
@@ -141,7 +145,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             }
 
             // Default Rule-based option (no download required)
-            item {
+            item(contentType = "rules_item") {
                 val isRulesSelected = selectedCleanerId == "rules"
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -174,7 +178,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 }
             }
 
-            items(cleaningModels, key = { it.info.id }) { modelState ->
+            items(
+                items = cleaningModels,
+                key = { it.info.id },
+                contentType = { "model_item" }
+            ) { modelState ->
                 ModelItem(
                     state = modelState,
                     onDownloadClick = { viewModel.downloadModel(modelState.info) },
@@ -195,12 +203,11 @@ fun ModelItem(
     onDeleteClick: () -> Unit
 ) {
     val model = state.info
+    val targetProgress = (state.downloadProgress / 100f).coerceIn(0f, 1f)
+    
     val animatedProgress by animateFloatAsState(
-        targetValue = state.downloadProgress / 100f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
+        targetValue = targetProgress,
+        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
         label = "downloadProgressAnimation"
     )
 
@@ -215,6 +222,7 @@ fun ModelItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(model.name, style = MaterialTheme.typography.titleMedium)
                 Text("Dimensioni: ${model.sizeMb}MB | RAM richiesta: ${model.ramRequiredMb}MB", style = MaterialTheme.typography.bodySmall)
+                
                 AnimatedVisibility(visible = state.isSelected, enter = fadeIn() + expandVertically()) {
                     Text("In Uso (Attivo)", color = Color(0xFF2196F3), style = MaterialTheme.typography.labelSmall)
                 }
@@ -229,8 +237,8 @@ fun ModelItem(
             AnimatedContent(
                 targetState = Triple(state.isSelected, state.isDownloaded, state.isDownloading),
                 transitionSpec = {
-                    (fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + scaleIn(initialScale = 0.8f)) togetherWith
-                    (fadeOut(animationSpec = tween(120)) + scaleOut(targetScale = 0.8f))
+                    (fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.9f)) togetherWith
+                    (fadeOut(animationSpec = tween(100)) + scaleOut(targetScale = 0.9f))
                 },
                 label = "actionStateTransition"
             ) { (isSelected, isDownloaded, isDownloading) ->
