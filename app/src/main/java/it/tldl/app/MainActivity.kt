@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import it.tldl.app.core.stt.ModelInfo
 import it.tldl.app.ui.ModelItemState
 import it.tldl.app.ui.SettingsViewModel
 
@@ -58,12 +57,14 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
-    val models by viewModel.models.collectAsState()
+    val transcriptionModels by viewModel.transcriptionModels.collectAsState()
+    val cleaningModels by viewModel.cleaningModels.collectAsState()
+    val selectedCleanerId by viewModel.selectedTextCleanerId.collectAsState()
     val availableRam by viewModel.availableRam.collectAsState()
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("TL;DL - Impostazioni") })
+            TopAppBar(title = { Text("TL;DL - Impostazioni Modelli") })
         }
     ) { padding ->
         LazyColumn(
@@ -99,8 +100,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Pulizia Testo Sperimentale (LLM/Post-Processing)", style = MaterialTheme.typography.titleMedium)
-                            Text("Rimuove intercalari (ehm, cioè), aggiunge punteggiatura e corregge le maiuscole.", style = MaterialTheme.typography.bodySmall)
+                            Text("Post-Processing Pulizia Testo", style = MaterialTheme.typography.titleMedium)
+                            Text("Abilita il ripristino di punteggiatura e la rimozione di intercalari dopo la trascrizione.", style = MaterialTheme.typography.bodySmall)
                         }
                         Switch(
                             checked = isCleanerEnabled,
@@ -110,11 +111,74 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 }
             }
 
-            items(models) { modelState ->
+            // SECTION 1: TRASCRIZIONE AUDIO
+            item {
+                Text(
+                    text = "1. Modelli di Trascrizione Vocale (STT)",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
+            items(transcriptionModels) { modelState ->
                 ModelItem(
                     state = modelState,
                     onDownloadClick = { viewModel.downloadModel(modelState.info) },
                     onSelectClick = { viewModel.selectModel(modelState.info.id) },
+                    onDeleteClick = { viewModel.deleteModel(modelState.info.id) }
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+
+            // SECTION 2: PULIZIA TESTO & PUNTEGGIATURA
+            item {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "2. Modelli di Pulizia Testo & Punteggiatura",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
+            // Default Rule-based option (no download required)
+            item {
+                val isRulesSelected = selectedCleanerId == "rules"
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    onClick = { if (!isRulesSelected) viewModel.selectTextCleaner("rules") }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Engine Euristico a Regole (Integrato)", style = MaterialTheme.typography.titleMedium)
+                            Text("Leggerissimo e immediato. Rimuove intercalari (ehm, cioè) e formatta frasi.", style = MaterialTheme.typography.bodySmall)
+                            if (isRulesSelected) {
+                                Text("In Uso (Attivo)", color = Color(0xFF2196F3), style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+
+                        if (isRulesSelected) {
+                            FilterChip(
+                                selected = true,
+                                onClick = { },
+                                label = { Text("Attivo") }
+                            )
+                        } else {
+                            OutlinedButton(onClick = { viewModel.selectTextCleaner("rules") }) {
+                                Text("Usa")
+                            }
+                        }
+                    }
+                }
+            }
+
+            items(cleaningModels) { modelState ->
+                ModelItem(
+                    state = modelState,
+                    onDownloadClick = { viewModel.downloadModel(modelState.info) },
+                    onSelectClick = { viewModel.selectTextCleaner(modelState.info.id) },
                     onDeleteClick = { viewModel.deleteModel(modelState.info.id) }
                 )
                 Spacer(Modifier.height(8.dp))
@@ -141,7 +205,7 @@ fun ModelItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(model.name, style = MaterialTheme.typography.titleMedium)
-                Text("RAM richiesta: ${model.ramRequiredMb}MB", style = MaterialTheme.typography.bodySmall)
+                Text("Dimensioni: ${model.sizeMb}MB | RAM richiesta: ${model.ramRequiredMb}MB", style = MaterialTheme.typography.bodySmall)
                 if (state.isSelected) {
                     Text("In Uso (Attivo)", color = Color(0xFF2196F3), style = MaterialTheme.typography.labelSmall)
                 } else if (model.isIdealCap) {

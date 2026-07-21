@@ -6,6 +6,7 @@ import java.io.File
 class ModelManager(private val context: Context) {
 
     private val modelsDir = File(context.filesDir, "models")
+    private val prefs = context.getSharedPreferences("tldl_prefs", Context.MODE_PRIVATE)
 
     init {
         if (!modelsDir.exists()) modelsDir.mkdirs()
@@ -13,12 +14,13 @@ class ModelManager(private val context: Context) {
 
     fun getAvailableModels(): List<ModelInfo> {
         return listOf(
+            // --- TRASCRIZIONE AUDIO ---
             ModelInfo(
                 id = "whisper-tiny",
                 name = "Whisper Tiny (Multilingua - Veloce)",
                 ramRequiredMb = 300,
                 sizeMb = 45,
-                isIdealCap = false,
+                category = ModelCategory.TRANSCRIPTION,
                 type = ModelType.WHISPER,
                 downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/",
                 requiredFiles = listOf("tiny-encoder.int8.onnx", "tiny-decoder.int8.onnx", "tiny-tokens.txt")
@@ -28,8 +30,9 @@ class ModelManager(private val context: Context) {
                 name = "Whisper Base (Multilingua - Consigliato)",
                 ramRequiredMb = 600,
                 sizeMb = 150,
-                isIdealCap = true,
+                category = ModelCategory.TRANSCRIPTION,
                 type = ModelType.WHISPER,
+                isIdealCap = true,
                 downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/",
                 requiredFiles = listOf("base-encoder.int8.onnx", "base-decoder.int8.onnx", "base-tokens.txt")
             ),
@@ -38,10 +41,32 @@ class ModelManager(private val context: Context) {
                 name = "Whisper Small (Multilingua - Alta Precisione)",
                 ramRequiredMb = 1200,
                 sizeMb = 375,
-                isIdealCap = false,
+                category = ModelCategory.TRANSCRIPTION,
                 type = ModelType.WHISPER,
                 downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-small/resolve/main/",
                 requiredFiles = listOf("small-encoder.int8.onnx", "small-decoder.int8.onnx", "small-tokens.txt")
+            ),
+
+            // --- PULIZIA TESTO & PUNTEGGIATURA ---
+            ModelInfo(
+                id = "punct-onnx",
+                name = "ONNX Punctuation (Ripristino Punteggiatura IA)",
+                ramRequiredMb = 100,
+                sizeMb = 16,
+                category = ModelCategory.TEXT_CLEANING,
+                type = ModelType.PUNCTUATION_ONNX,
+                downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-punct-ct-transformer-zh-en-vocab-272257-2024-04-12/resolve/main/",
+                requiredFiles = listOf("model.onnx")
+            ),
+            ModelInfo(
+                id = "smollm-onnx",
+                name = "SmolLM-135M (Mini LLM Locale Riscrittura Testo)",
+                ramRequiredMb = 300,
+                sizeMb = 135,
+                category = ModelCategory.TEXT_CLEANING,
+                type = ModelType.SMOLLM_ONNX,
+                downloadUrl = "https://huggingface.co/HuggingFaceTB/SmolLM-135M-Instruct-ONNX/resolve/main/",
+                requiredFiles = listOf("model.onnx")
             )
         )
     }
@@ -56,8 +81,6 @@ class ModelManager(private val context: Context) {
         val modelFolder = File(modelsDir, modelId)
         return if (isModelDownloaded(modelId)) modelFolder else null
     }
-    
-    private val prefs = context.getSharedPreferences("tldl_prefs", Context.MODE_PRIVATE)
 
     fun isTextCleanerEnabled(): Boolean {
         return prefs.getBoolean("enable_text_cleaner", false)
@@ -75,11 +98,22 @@ class ModelManager(private val context: Context) {
         prefs.edit().putString("selected_model_id", modelId).apply()
     }
 
+    fun getSelectedTextCleanerId(): String {
+        return prefs.getString("selected_text_cleaner_id", "rules") ?: "rules"
+    }
+
+    fun setSelectedTextCleanerId(cleanerId: String) {
+        prefs.edit().putString("selected_text_cleaner_id", cleanerId).apply()
+    }
+
     fun deleteModel(modelId: String): Boolean {
         val modelFolder = File(modelsDir, modelId)
         val success = if (modelFolder.exists()) modelFolder.deleteRecursively() else false
         if (getSelectedModelId() == modelId) {
             prefs.edit().remove("selected_model_id").apply()
+        }
+        if (getSelectedTextCleanerId() == modelId) {
+            prefs.edit().putString("selected_text_cleaner_id", "rules").apply()
         }
         return success
     }
@@ -90,7 +124,10 @@ class ModelManager(private val context: Context) {
             getAvailableModels().find { it.id == selectedId }?.let { return it }
         }
 
-        val downloaded = getAvailableModels().filter { isModelDownloaded(it.id) }
+        val downloaded = getAvailableModels()
+            .filter { it.category == ModelCategory.TRANSCRIPTION }
+            .filter { isModelDownloaded(it.id) }
+            
         if (downloaded.isEmpty()) return null
 
         val freeRam = RamCalculator.getAvailableRamMb(context)

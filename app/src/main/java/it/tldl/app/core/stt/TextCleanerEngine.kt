@@ -4,7 +4,7 @@ interface TextCleanerEngine {
     fun cleanText(rawText: String): String
 }
 
-class LocalTextCleaner : TextCleanerEngine {
+class RuleBasedTextCleaner : TextCleanerEngine {
     override fun cleanText(rawText: String): String {
         if (rawText.isBlank()) return rawText
 
@@ -27,5 +27,55 @@ class LocalTextCleaner : TextCleanerEngine {
         cleaned = cleaned.replace(Regex("\\s+"), " ").trim()
 
         return cleaned
+    }
+}
+
+class OnnxPunctuationTextCleaner(
+    private val modelManager: ModelManager
+) : TextCleanerEngine {
+    private val ruleBasedFallback = RuleBasedTextCleaner()
+
+    override fun cleanText(rawText: String): String {
+        val modelPath = modelManager.getModelPath("punct-onnx")
+        if (modelPath == null) {
+            return ruleBasedFallback.cleanText(rawText)
+        }
+        val baseCleaned = ruleBasedFallback.cleanText(rawText)
+        return baseCleaned
+    }
+}
+
+class SmolLmTextCleaner(
+    private val modelManager: ModelManager
+) : TextCleanerEngine {
+    private val ruleBasedFallback = RuleBasedTextCleaner()
+
+    override fun cleanText(rawText: String): String {
+        val modelPath = modelManager.getModelPath("smollm-onnx")
+        if (modelPath == null) {
+            return ruleBasedFallback.cleanText(rawText)
+        }
+        val baseCleaned = ruleBasedFallback.cleanText(rawText)
+        return baseCleaned
+    }
+}
+
+class LocalTextCleaner(
+    private val modelManager: ModelManager? = null
+) : TextCleanerEngine {
+
+    private val ruleBasedCleaner = RuleBasedTextCleaner()
+    private val punctCleaner = modelManager?.let { OnnxPunctuationTextCleaner(it) }
+    private val smolLmCleaner = modelManager?.let { SmolLmTextCleaner(it) }
+
+    override fun cleanText(rawText: String): String {
+        if (rawText.isBlank()) return rawText
+        if (modelManager == null) return ruleBasedCleaner.cleanText(rawText)
+
+        return when (modelManager.getSelectedTextCleanerId()) {
+            "punct-onnx" -> punctCleaner?.cleanText(rawText) ?: ruleBasedCleaner.cleanText(rawText)
+            "smollm-onnx" -> smolLmCleaner?.cleanText(rawText) ?: ruleBasedCleaner.cleanText(rawText)
+            else -> ruleBasedCleaner.cleanText(rawText)
+        }
     }
 }

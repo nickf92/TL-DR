@@ -2,7 +2,14 @@ package it.tldl.app.core.stt
 
 enum class ModelType {
     ZIPFORMER,
-    WHISPER
+    WHISPER,
+    PUNCTUATION_ONNX,
+    SMOLLM_ONNX
+}
+
+enum class ModelCategory {
+    TRANSCRIPTION,
+    TEXT_CLEANING
 }
 
 data class ModelInfo(
@@ -11,8 +18,9 @@ data class ModelInfo(
     val ramRequiredMb: Long,
     val sizeMb: Long = 100,
     val engine: String = "sherpa-onnx",
-    val type: ModelType = ModelType.ZIPFORMER,
+    val type: ModelType = ModelType.WHISPER,
+    val category: ModelCategory = ModelCategory.TRANSCRIPTION,
     val downloadUrl: String = "",
     val isIdealCap: Boolean = false,
-    val requiredFiles: List<String> = listOf("encoder.onnx", "decoder.onnx", "joiner.onnx", "tokens.txt")
+    val requiredFiles: List<String> = listOf("encoder.onnx", "decoder.onnx", "tokens.txt")
 )

@@ -23,8 +23,8 @@ class TranscriptionService : Service() {
     
     private val audioProcessor = AudioProcessor()
     private val sttEngine = SherpaOnnxEngine()
-    private val textCleaner = LocalTextCleaner()
     private lateinit var modelManager: ModelManager
+    private val textCleaner by lazy { LocalTextCleaner(modelManager) }
 
     companion object {
         const val CHANNEL_ID = "tldl_transcription_channel"

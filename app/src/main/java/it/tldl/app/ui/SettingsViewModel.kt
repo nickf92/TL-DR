@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.*
+import it.tldl.app.core.stt.ModelCategory
 import it.tldl.app.core.stt.ModelDownloadWorker
 import it.tldl.app.core.stt.ModelInfo
 import it.tldl.app.core.stt.ModelManager
@@ -26,8 +27,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val modelManager = ModelManager(application)
     private val workManager = WorkManager.getInstance(application)
 
-    private val _models = MutableStateFlow<List<ModelItemState>>(emptyList())
-    val models = _models.asStateFlow()
+    private val _transcriptionModels = MutableStateFlow<List<ModelItemState>>(emptyList())
+    val transcriptionModels = _transcriptionModels.asStateFlow()
+
+    private val _cleaningModels = MutableStateFlow<List<ModelItemState>>(emptyList())
+    val cleaningModels = _cleaningModels.asStateFlow()
+
+    private val _selectedTextCleanerId = MutableStateFlow("rules")
+    val selectedTextCleanerId = _selectedTextCleanerId.asStateFlow()
 
     private val _availableRam = MutableStateFlow(0L)
     val availableRam = _availableRam.asStateFlow()
@@ -49,21 +56,40 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun refreshModels() {
         viewModelScope.launch {
             val available = modelManager.getAvailableModels()
-            val activeModel = modelManager.getActiveModel()
-            _models.value = available.map { info ->
+            val activeSTT = modelManager.getActiveModel()
+            val activeCleanerId = modelManager.getSelectedTextCleanerId()
+
+            _selectedTextCleanerId.value = activeCleanerId
+
+            val allStates = available.map { info ->
                 val downloaded = modelManager.isModelDownloaded(info.id)
+                val isSelected = if (info.category == ModelCategory.TRANSCRIPTION) {
+                    downloaded && activeSTT?.id == info.id
+                } else {
+                    downloaded && activeCleanerId == info.id
+                }
                 ModelItemState(
                     info = info,
                     isDownloaded = downloaded,
-                    isSelected = downloaded && activeModel?.id == info.id
+                    isSelected = isSelected
                 )
             }
+
+            _transcriptionModels.value = allStates.filter { it.info.category == ModelCategory.TRANSCRIPTION }
+            _cleaningModels.value = allStates.filter { it.info.category == ModelCategory.TEXT_CLEANING }
         }
     }
 
     fun selectModel(modelId: String) {
         if (modelManager.isModelDownloaded(modelId)) {
             modelManager.setSelectedModel(modelId)
+            refreshModels()
+        }
+    }
+
+    fun selectTextCleaner(cleanerId: String) {
+        if (cleanerId == "rules" || modelManager.isModelDownloaded(cleanerId)) {
+            modelManager.setSelectedTextCleanerId(cleanerId)
             refreshModels()
         }
     }
@@ -100,7 +126,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
         var continuation = workManager.beginUniqueWork(
             "download_${model.id}",
-            ExistingWorkPolicy.REPLACE, // Permette di riavviare se bloccato
+            ExistingWorkPolicy.REPLACE,
             requests[0]
         )
         
@@ -134,12 +160,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun updateModelState(modelId: String, isDownloading: Boolean, progress: Int, error: String?) {
-        _models.value = _models.value.map { 
-            if (it.info.id == modelId) it.copy(
-                isDownloading = isDownloading, 
-                downloadProgress = progress,
-                error = error
-            )
+        _transcriptionModels.value = _transcriptionModels.value.map { 
+            if (it.info.id == modelId) it.copy(isDownloading = isDownloading, downloadProgress = progress, error = error)
+            else it
+        }
+        _cleaningModels.value = _cleaningModels.value.map { 
+            if (it.info.id == modelId) it.copy(isDownloading = isDownloading, downloadProgress = progress, error = error)
             else it
         }
     }
