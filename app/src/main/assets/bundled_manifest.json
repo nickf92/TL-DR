@@ -1,14 +1,5 @@
 [
   {
-    "id": "sherpa-onnx-whisper-tiny",
-    "name": "Whisper Tiny (Multi-lingua)",
-    "engine": "sherpa-onnx",
-    "sizeMb": 75,
-    "ramRequiredMb": 400,
-    "downloadUrl": "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/model.onnx",
-    "isIdealCap": false
-  },
-  {
     "id": "sherpa-onnx-sensevoice-small",
     "name": "SenseVoice Small (Raccomandato)",
     "engine": "sherpa-onnx",

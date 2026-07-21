@@ -16,16 +16,6 @@ class ModelManager(private val context: Context) {
         return listOf(
             // --- TRASCRIZIONE AUDIO ---
             ModelInfo(
-                id = "whisper-tiny",
-                name = "Whisper Tiny (Multilingua - Veloce)",
-                ramRequiredMb = 300,
-                sizeMb = 45,
-                category = ModelCategory.TRANSCRIPTION,
-                type = ModelType.WHISPER,
-                downloadUrl = "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny/resolve/main/",
-                requiredFiles = listOf("tiny-encoder.int8.onnx", "tiny-decoder.int8.onnx", "tiny-tokens.txt")
-            ),
-            ModelInfo(
                 id = "whisper-base",
                 name = "Whisper Base (Multilingua - Consigliato)",
                 ramRequiredMb = 600,
