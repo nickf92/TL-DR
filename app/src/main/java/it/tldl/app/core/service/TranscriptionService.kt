@@ -1,0 +1,135 @@
+package it.tldl.app.core.service
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.Intent
+import android.os.Build
+import android.os.IBinder
+import androidx.core.app.NotificationCompat
+import it.tldl.app.core.audio.AudioProcessor
+import it.tldl.app.core.stt.ModelManager
+import it.tldl.app.core.stt.SherpaOnnxEngine
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import java.io.File
+
+class TranscriptionService : Service() {
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    
+    private val audioProcessor = AudioProcessor()
+    private val sttEngine = SherpaOnnxEngine()
+    private lateinit var modelManager: ModelManager
+
+    companion object {
+        const val CHANNEL_ID = "tldl_transcription_channel"
+        const val NOTIFICATION_ID = 1001
+        const val ACTION_START = "ACTION_START"
+        const val ACTION_CANCEL = "ACTION_CANCEL"
+        const val EXTRA_AUDIO_PATH = "EXTRA_AUDIO_PATH"
+
+        private val _state = MutableStateFlow<TranscriptionState>(TranscriptionState.Idle)
+        val state = _state.asStateFlow()
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+        modelManager = ModelManager(this)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        serviceScope.cancel()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_START -> {
+                val audioPath = intent.getStringExtra(EXTRA_AUDIO_PATH)
+                val notification = buildNotification(0, "Preparazione trascrizione...")
+                startForeground(NOTIFICATION_ID, notification)
+
+                if (audioPath != null) {
+                    startTranscription(File(audioPath))
+                }
+            }
+            ACTION_CANCEL -> {
+                _state.value = TranscriptionState.Idle
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
+        }
+        return START_NOT_STICKY
+    }
+
+    private fun startTranscription(audioFile: File) {
+        _state.value = TranscriptionState.Decoding
+        serviceScope.launch {
+            try {
+                updateNotification(0, "Decodifica audio...")
+
+                val pcmData = audioProcessor.processAudioFile(audioFile)
+                
+                _state.value = TranscriptionState.Transcribing(0, "")
+                updateNotification(0, "Trascrizione in corso...")
+
+                val model = modelManager.getSmartDefaultModel()
+                val modelPath = modelManager.getModelPath(model.id)
+                
+                if (modelPath == null) {
+                    throw IllegalStateException("Modello ${model.name} non scaricato. Scaricalo nelle impostazioni.")
+                }
+
+                sttEngine.initialize(modelPath)
+
+                val result = sttEngine.transcribeStream(pcmData) { progress, partial ->
+                    _state.value = TranscriptionState.Transcribing(progress, partial)
+                    updateNotification(progress, "Trascrizione: $progress%")
+                }
+
+                _state.value = TranscriptionState.Success(result)
+                updateNotification(100, "Completato")
+            } catch (e: Exception) {
+                _state.value = TranscriptionState.Error(e.message ?: "Errore sconosciuto")
+                updateNotification(0, "Errore: ${e.message}", true)
+            }
+        }
+    }
+
+    private fun updateNotification(progress: Int, text: String, isError: Boolean = false) {
+        val notification = buildNotification(progress, text)
+        val manager = getSystemService(NotificationManager::class.java)
+        manager?.notify(NOTIFICATION_ID, notification)
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Trascrizione Audio TL;DL",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Mostra l'avanzamento della trascrizione vocale in background"
+            }
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.createNotificationChannel(channel)
+        }
+    }
+
+    private fun buildNotification(progress: Int, statusText: String): Notification {
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("TL;DL Vocal Transcription")
+            .setContentText(statusText)
+            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setProgress(100, progress, progress == 0)
+            .setOngoing(true)
+            .build()
+    }
+
+}

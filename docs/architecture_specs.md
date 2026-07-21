@@ -1,5 +1,5 @@
 # Specifiche Tecniche e Architetturali (Rifinite)
-**Progetto:** TL;DR - App di Trascrizione Vocale Offline e Privacy-First per Android
+**Progetto:** TL;DL - App di Trascrizione Vocale Offline e Privacy-First per Android
 
 ## 1. Sintesi delle Decisioni Architetturali (Grill-Me)
 

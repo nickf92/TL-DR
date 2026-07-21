@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.TLDR" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.TLDL" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@android:color/black</item>
     </style>
 
-    <style name="Theme.TLDR.Transparent" parent="Theme.TLDR">
+    <style name="Theme.TLDL.Transparent" parent="Theme.TLDL">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowContentOverlay">@null</item>

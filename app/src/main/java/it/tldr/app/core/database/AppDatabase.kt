@@ -1,9 +1,0 @@
-package it.tldr.app.core.database
-
-import androidx.room.Database
-import androidx.room.RoomDatabase
-
-@Database(entities = [TranscriptionEntity::class], version = 1, exportSchema = false)
-abstract class AppDatabase : RoomDatabase() {
-    abstract fun transcriptionDao(): TranscriptionDao
-}

@@ -1,5 +1,5 @@
 # Product Requirements Document (PRD) v2
-**Progetto:** App di Trascrizione Vocale Offline e Privacy-First
+**Progetto:** TL;DL - App di Trascrizione Vocale Offline e Privacy-First
 
 ## 1. Vision e Core Values
 Un'applicazione Android open-source progettata per trascrivere messaggi vocali (da app di messaggistica come WhatsApp, Telegram, ecc.) interamente *on-device*. 
