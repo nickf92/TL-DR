@@ -104,16 +104,16 @@ class TranscriptionService : Service() {
                 }
 
                 _state.value = TranscriptionState.Success(finalResult)
-                updateNotification(100, "Completato")
+                updateNotification(100, "Trascrizione completata! Tocca per aprire.", isFinished = true)
             } catch (e: Exception) {
                 _state.value = TranscriptionState.Error(e.message ?: "Errore sconosciuto")
-                updateNotification(0, "Errore: ${e.message}", true)
+                updateNotification(0, "Errore: ${e.message}", isFinished = true)
             }
         }
     }
 
-    private fun updateNotification(progress: Int, text: String, isError: Boolean = false) {
-        val notification = buildNotification(progress, text)
+    private fun updateNotification(progress: Int, text: String, isFinished: Boolean = false) {
+        val notification = buildNotification(progress, text, isFinished)
         val manager = getSystemService(NotificationManager::class.java)
         manager?.notify(NOTIFICATION_ID, notification)
     }
@@ -134,14 +134,37 @@ class TranscriptionService : Service() {
         }
     }
 
-    private fun buildNotification(progress: Int, statusText: String): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("TL;DL Vocal Transcription")
+    private fun buildNotification(progress: Int, statusText: String, isFinished: Boolean = false): Notification {
+        val openIntent = Intent(this, it.tldl.app.TransparentShareActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            this,
+            0,
+            openIntent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("TL;DL Trascrizione Vocale")
             .setContentText(statusText)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setProgress(100, progress, progress == 0)
-            .setOngoing(true)
-            .build()
+            .setContentIntent(pendingIntent)
+            .setOngoing(!isFinished)
+            .setAutoCancel(isFinished)
+
+        if (!isFinished) {
+            builder.setProgress(100, progress, progress == 0)
+        } else {
+            builder.setProgress(0, 0, false)
+            builder.addAction(
+                android.R.drawable.ic_menu_view,
+                "Apri",
+                pendingIntent
+            )
+        }
+
+        return builder.build()
     }
 
 }
