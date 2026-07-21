@@ -66,9 +66,13 @@ class SmolLmTextCleaner(
 ) : TextCleanerEngine {
     private val ruleBasedFallback = RuleBasedTextCleaner()
 
+    companion object {
+        private var isOrtAvailable: Boolean? = null
+    }
+
     override fun cleanText(rawText: String): String {
         val modelPath = modelManager.getModelPath("smollm-onnx")
-        if (modelPath == null) {
+        if (modelPath == null || isOrtAvailable == false) {
             return ruleBasedFallback.cleanText(rawText)
         }
 
@@ -91,9 +95,11 @@ class SmolLmTextCleaner(
             // Close session resources safely after validation
             session.close()
             sessionOptions.close()
+            isOrtAvailable = true
 
             ruleBasedFallback.cleanText(rawText)
         } catch (e: Throwable) {
+            isOrtAvailable = false
             ruleBasedFallback.cleanText(rawText)
         }
     }
