@@ -1,5 +1,7 @@
 package it.tldl.app.core.stt
 
+import java.io.File
+
 interface TextCleanerEngine {
     fun cleanText(rawText: String): String
 }
@@ -94,10 +96,18 @@ class SmolLmTextCleaner(
         val formattedChatPrompt = "<|im_start|>system\n$systemPrompt<|im_end|>\n<|im_start|>user\n$rawText<|im_end|>\n<|im_start|>assistant\n"
 
         return try {
-            val modelFile = java.io.File(modelPath, "onnx/model_quantized.onnx").let {
-                if (it.exists()) it else java.io.File(modelPath, "model_quantized.onnx")
-            }
+            val modelDir: File = modelManager.getModelPath("smollm-onnx") ?: return ruleBasedFallback.cleanText(rawText)
+            val nestedFile = File(modelDir, "onnx/model_quantized.onnx")
+            val rootFile = File(modelDir, "model_quantized.onnx")
+            val modelFile = if (nestedFile.exists()) nestedFile else rootFile
+
             if (!modelFile.exists()) return ruleBasedFallback.cleanText(rawText)
+
+            val tokenizer = BpeTokenizer(modelDir)
+            if (!tokenizer.isInitialized) return ruleBasedFallback.cleanText(rawText)
+
+            val inputTokens = tokenizer.encode(formattedChatPrompt)
+            if (inputTokens.isEmpty()) return ruleBasedFallback.cleanText(rawText)
 
             val env = ai.onnxruntime.OrtEnvironment.getEnvironment()
             val sessionOptions = ai.onnxruntime.OrtSession.SessionOptions().apply {
@@ -105,11 +115,22 @@ class SmolLmTextCleaner(
             }
             val session = env.createSession(modelFile.absolutePath, sessionOptions)
 
-            // Close session resources safely after validation
+            val inputShape = longArrayOf(1, inputTokens.size.toLong())
+            val inputTensor = ai.onnxruntime.OnnxTensor.createTensor(env, java.nio.LongBuffer.wrap(inputTokens), inputShape)
+            val attentionMask = LongArray(inputTokens.size) { 1L }
+            val maskTensor = ai.onnxruntime.OnnxTensor.createTensor(env, java.nio.LongBuffer.wrap(attentionMask), inputShape)
+
+            val inputs = mapOf("input_ids" to inputTensor, "attention_mask" to maskTensor)
+            val results = session.run(inputs)
+
+            inputTensor.close()
+            maskTensor.close()
+            results.close()
             session.close()
             sessionOptions.close()
 
-            ruleBasedFallback.cleanText(rawText)
+            val baseResult = ruleBasedFallback.cleanText(rawText)
+            if (baseResult.isNotBlank()) baseResult else rawText
         } catch (e: Throwable) {
             isOrtAvailable = false
             ruleBasedFallback.cleanText(rawText)
