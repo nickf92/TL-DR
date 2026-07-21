@@ -68,11 +68,24 @@ class SmolLmTextCleaner(
 
     companion object {
         private var isOrtAvailable: Boolean? = null
+
+        fun ensureNativeLibsLoaded(): Boolean {
+            if (isOrtAvailable != null) return isOrtAvailable == true
+            return try {
+                System.loadLibrary("onnxruntime")
+                System.loadLibrary("onnxruntime4j_jni")
+                isOrtAvailable = true
+                true
+            } catch (e: Throwable) {
+                isOrtAvailable = false
+                false
+            }
+        }
     }
 
     override fun cleanText(rawText: String): String {
         val modelPath = modelManager.getModelPath("smollm-onnx")
-        if (modelPath == null || isOrtAvailable == false) {
+        if (modelPath == null || !ensureNativeLibsLoaded()) {
             return ruleBasedFallback.cleanText(rawText)
         }
 
@@ -95,7 +108,6 @@ class SmolLmTextCleaner(
             // Close session resources safely after validation
             session.close()
             sessionOptions.close()
-            isOrtAvailable = true
 
             ruleBasedFallback.cleanText(rawText)
         } catch (e: Throwable) {
