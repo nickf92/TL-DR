@@ -7,7 +7,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -72,13 +71,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
+            contentPadding = PaddingValues(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item(key = "ram_header", contentType = "ram_header") {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                 ) {
                     Row(
@@ -94,9 +92,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
 
             item(key = "cleaner_switch", contentType = "cleaner_switch") {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Row(
@@ -120,7 +116,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 Text(
                     text = "1. Modelli di Trascrizione Vocale (STT)",
                     style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    modifier = Modifier.padding(top = 8.dp)
                 )
             }
 
@@ -135,27 +131,21 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                     onSelectClick = { viewModel.selectModel(modelState.info.id) },
                     onDeleteClick = { viewModel.deleteModel(modelState.info.id) }
                 )
-                Spacer(Modifier.height(8.dp))
             }
 
             // SECTION 2: PULIZIA TESTO & PUNTEGGIATURA
             item(key = "header_cleaner", contentType = "section_header") {
-                Spacer(Modifier.height(16.dp))
                 Text(
                     text = "2. Modelli di Pulizia Testo & Punteggiatura",
                     style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    modifier = Modifier.padding(top = 16.dp)
                 )
             }
 
             // Default Rule-based option (no download required)
             item(key = "rules_cleaner", contentType = "rules_item") {
                 val isRulesSelected = selectedCleanerId == "rules"
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp)
-                ) {
+                Card(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -191,10 +181,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 ModelItem(
                     state = modelState,
                     onDownloadClick = { viewModel.downloadModel(modelState.info) },
-                    onSelectClick = { viewModel.selectTextCleaner(modelState.info.id) },
+                    onSelectClick = { viewModel.selectModel(modelState.info.id) },
                     onDeleteClick = { viewModel.deleteModel(modelState.info.id) }
                 )
-                Spacer(Modifier.height(8.dp))
             }
         }
     }

@@ -1,5 +1,7 @@
 package it.tldl.app.core.stt
 
+import androidx.compose.runtime.Immutable
+
 enum class ModelType {
     ZIPFORMER,
     WHISPER,
@@ -12,6 +14,7 @@ enum class ModelCategory {
     TEXT_CLEANING
 }
 
+@Immutable
 data class ModelInfo(
     val id: String,
     val name: String,

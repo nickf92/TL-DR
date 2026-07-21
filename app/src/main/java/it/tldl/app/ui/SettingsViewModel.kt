@@ -2,6 +2,7 @@ package it.tldl.app.ui
 
 import android.app.Application
 import android.util.Log
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.*
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
+@Immutable
 data class ModelItemState(
     val info: ModelInfo,
     val isDownloaded: Boolean,
