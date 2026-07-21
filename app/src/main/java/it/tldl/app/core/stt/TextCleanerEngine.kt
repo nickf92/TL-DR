@@ -40,8 +40,24 @@ class OnnxPunctuationTextCleaner(
         if (modelPath == null) {
             return ruleBasedFallback.cleanText(rawText)
         }
-        val baseCleaned = ruleBasedFallback.cleanText(rawText)
-        return baseCleaned
+        return try {
+            val modelFile = java.io.File(modelPath, "model.onnx")
+            if (!modelFile.exists()) return ruleBasedFallback.cleanText(rawText)
+
+            val config = com.k2fsa.sherpa.onnx.OfflinePunctuationConfig(
+                model = com.k2fsa.sherpa.onnx.OfflinePunctuationModelConfig(
+                    ctTransformer = modelFile.absolutePath,
+                    numThreads = 2,
+                    debug = false
+                )
+            )
+            val punct = com.k2fsa.sherpa.onnx.OfflinePunctuation(null, config)
+            val result = punct.addPunctuation(rawText)
+            punct.release()
+            if (result.isNotBlank()) result else ruleBasedFallback.cleanText(rawText)
+        } catch (e: Throwable) {
+            ruleBasedFallback.cleanText(rawText)
+        }
     }
 }
 
