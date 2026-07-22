@@ -83,7 +83,10 @@ enum class AppTab(val title: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(viewModel: SettingsViewModel = viewModel()) {
-    var selectedTab by remember { mutableStateOf(AppTab.MODELS) }
+    val isHistoryOptIn by viewModel.isHistoryOptInEnabled.collectAsState()
+    var selectedTab by remember(isHistoryOptIn) {
+        mutableStateOf(if (isHistoryOptIn) AppTab.HISTORY else AppTab.MODELS)
+    }
 
     Scaffold(
         topBar = {

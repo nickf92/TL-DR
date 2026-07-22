@@ -57,7 +57,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     init {
         _availableRam.value = RamCalculator.getAvailableRamMb(application)
         _isTextCleanerEnabled.value = modelManager.isTextCleanerEnabled()
-        _isHistoryOptInEnabled.value = prefs.getBoolean("enable_history_opt_in", false)
+        _isHistoryOptInEnabled.value = prefs.getBoolean("enable_history_opt_in", true)
         refreshModels()
         loadHistory()
     }
