@@ -34,6 +34,11 @@ class AudioProcessorTest {
 
         assertEquals(4, result.size)
         assertEquals(100.toShort(), result[0])
+
+        val directEngine = AudioEngine(primary, fallback)
+        val directResult = directEngine.decodeToPcm(tempFile)
+        assertEquals(4, directResult.size)
+        assertEquals(100.toShort(), directResult[0])
         tempFile.delete()
     }
 
@@ -49,6 +54,28 @@ class AudioProcessorTest {
         assertEquals(4, result.size)
         assertEquals(500.toShort(), result[0])
         tempFile.delete()
+    }
+
+    @Test
+    fun testAudioProcessorThrowsExceptionWhenBothDecodersFail() = runTest {
+        val primary = MockPrimaryDecoder(succeed = false)
+        val failingFallback = object : AudioDecoder {
+            override fun canDecode(file: File): Boolean = true
+            override suspend fun decodeToPcm(file: File): ShortArray {
+                throw IllegalStateException("FFmpeg failed")
+            }
+        }
+        val processor = AudioProcessor(primary, failingFallback)
+
+        val tempFile = File.createTempFile("test_voice_fail", ".unknown")
+        try {
+            processor.processAudioFile(tempFile)
+            assertTrue("Dovrebbe aver lanciato un'eccezione", false)
+        } catch (e: Exception) {
+            assertTrue(e.message?.contains("Entrambi i decoder hanno fallito") == true)
+        } finally {
+            tempFile.delete()
+        }
     }
 }
 
