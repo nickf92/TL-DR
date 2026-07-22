@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 
+import it.tldl.app.core.stt.TranscriptionPipeline
+
 class TranscriptionService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -63,7 +65,12 @@ class TranscriptionService : Service() {
             ACTION_CANCEL -> {
                 currentTranscriptionJob?.cancel()
                 _state.value = TranscriptionState.Idle
-                stopForeground(STOP_FOREGROUND_REMOVE)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } else {
+                    @Suppress("DEPRECATION")
+                    stopForeground(true)
+                }
                 stopSelf()
             }
         }
@@ -74,73 +81,64 @@ class TranscriptionService : Service() {
         _state.value = TranscriptionState.Decoding
         currentTranscriptionJob = serviceScope.launch {
             try {
-                updateNotification(0, "Decodifica audio...")
+                val historyRepo = try {
+                    it.tldl.app.core.database.HistoryRepository.getInstance(applicationContext)
+                } catch (t: Throwable) { null }
 
-                val pcmData = audioProcessor.processAudioFile(audioFile)
-                
-                _state.value = TranscriptionState.Transcribing(5, "Caricamento modello in RAM...")
-                updateNotification(5, "Caricamento modello in memoria RAM...")
+                val pipeline = TranscriptionPipeline(
+                    audioProcessor = audioProcessor,
+                    sttEngine = sttEngine,
+                    modelManager = modelManager,
+                    textCleaner = textCleaner,
+                    historyRepository = historyRepo
+                )
 
-                val model = modelManager.getActiveModel()
-                if (model == null) {
-                    throw IllegalStateException("Nessun modello scaricato. Apri l'app per scaricare un modello.")
+                pipeline.execute(audioFile) { state ->
+                    _state.value = state
+                    when (state) {
+                        is TranscriptionState.Decoding -> updateNotification(0, "Decodifica audio...")
+                        is TranscriptionState.Transcribing -> updateNotification(state.progress, if (state.progress <= 5) state.partialText else "Trascrizione: ${state.progress}%")
+                        is TranscriptionState.Success -> updateNotification(100, "Trascrizione completata! Tocca per aprire.", isFinished = true)
+                        is TranscriptionState.Error -> updateNotification(0, "Errore: ${state.message}", isFinished = true)
+                        else -> {}
+                    }
                 }
-
-                val modelPath = modelManager.getModelPath(model.id)
-                if (modelPath == null) {
-                    throw IllegalStateException("Modello ${model.name} non scaricato. Scaricalo nelle impostazioni.")
-                }
-
-                updateNotification(10, "Caricamento ${model.name} in RAM...")
-                sttEngine.initialize(modelPath)
-                updateNotification(20, "Modello pronto in RAM. Avvio trascrizione...")
-
-                val rawResult = sttEngine.transcribeStream(pcmData) { progress, partial ->
-                    _state.value = TranscriptionState.Transcribing(progress, partial)
-                    updateNotification(progress, "Trascrizione: $progress%")
-                }
-
-                val finalResult = if (modelManager.isTextCleanerEnabled()) {
-                    updateNotification(98, "Pulizia testo con Post-Processor...")
-                    textCleaner.cleanText(rawResult)
-                } else {
-                    rawResult
-                }
-
-                _state.value = TranscriptionState.Success(finalResult)
-                updateNotification(100, "Trascrizione completata! Tocca per aprire.", isFinished = true)
             } catch (e: Exception) {
                 if (e !is CancellationException) {
                     _state.value = TranscriptionState.Error(e.message ?: "Errore sconosciuto")
                     updateNotification(0, "Errore: ${e.message}", isFinished = true)
-                }
-            } finally {
-                if (audioFile.exists()) {
-                    audioFile.delete()
                 }
             }
         }
     }
 
     private fun updateNotification(progress: Int, text: String, isFinished: Boolean = false) {
-        val notification = buildNotification(progress, text, isFinished)
-        val manager = getSystemService(NotificationManager::class.java)
-        manager?.notify(NOTIFICATION_ID, notification)
+        try {
+            val notification = buildNotification(progress, text, isFinished)
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.notify(NOTIFICATION_ID, notification)
+        } catch (t: Throwable) {
+            // Ignore notification error if service unattached in tests
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Trascrizione Audio TL;DL",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Mostra l'avanzamento della trascrizione vocale in background"
+            try {
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    "Trascrizione Audio TL;DL",
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = "Mostra l'avanzamento della trascrizione vocale in background"
+                }
+                val manager = getSystemService(NotificationManager::class.java)
+                manager?.createNotificationChannel(channel)
+            } catch (t: Throwable) {
+                // Ignore channel creation error if unattached in tests
             }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager?.createNotificationChannel(channel)
         }
     }
 
@@ -167,9 +165,23 @@ class TranscriptionService : Service() {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         if (!isFinished) {
+            val cancelIntent = Intent(this, TranscriptionService::class.java).apply {
+                action = ACTION_CANCEL
+            }
+            val cancelPendingIntent = android.app.PendingIntent.getService(
+                this,
+                1,
+                cancelIntent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
             val isIndeterminate = progress <= 0
             builder.setProgress(100, progress, isIndeterminate)
             builder.setSubText(if (!isIndeterminate) "$progress%" else "In lavorazione")
+            builder.addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                "Annulla",
+                cancelPendingIntent
+            )
         } else {
             builder.setProgress(0, 0, false)
             builder.setSubText("Completato")

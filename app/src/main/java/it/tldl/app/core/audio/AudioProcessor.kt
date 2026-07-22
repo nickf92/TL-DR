@@ -2,12 +2,12 @@ package it.tldl.app.core.audio
 
 import java.io.File
 
-class AudioProcessor(
+open class AudioProcessor(
     private val primaryDecoder: AudioDecoder = MediaCodecAudioDecoder(),
     private val fallbackDecoder: AudioDecoder = FFmpegAudioDecoder()
 ) {
 
-    suspend fun processAudioFile(file: File): ShortArray {
+    open suspend fun processAudioFile(file: File): ShortArray {
         require(file.exists()) { "File audio non trovato: ${file.absolutePath}" }
         
         return try {
