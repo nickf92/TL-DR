@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.OpenInFull
@@ -507,77 +508,145 @@ fun HistoryScreen(
     selectedDetailItem?.let { item ->
         val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
         val formattedDate = remember(item.timestampMs) { dateFormat.format(Date(item.timestampMs)) }
+        val wordCount = remember(item.transcribedText) {
+            if (item.transcribedText.isBlank()) 0
+            else item.transcribedText.trim().split("\\s+".toRegex()).size
+        }
+        val charCount = remember(item.transcribedText) { item.transcribedText.length }
 
         AlertDialog(
             onDismissRequest = { selectedDetailItem = null },
+            icon = {
+                Icon(
+                    Icons.Default.GraphicEq,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
             title = {
-                Column {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = item.fileName,
-                        style = MaterialTheme.typography.titleMedium,
+                        text = "Trascrizione Vocale",
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = formattedDate,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
             },
             text = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 380.dp)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    SelectionContainer {
-                        Text(
-                            text = item.transcribedText,
-                            style = MaterialTheme.typography.bodyMedium
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text("$wordCount parole") },
+                            colors = SuggestionChipDefaults.suggestionChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         )
+                        Spacer(Modifier.width(8.dp))
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text("$charCount caratteri") },
+                            colors = SuggestionChipDefaults.suggestionChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 340.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
+                                .padding(16.dp)
+                        ) {
+                            SelectionContainer {
+                                Text(
+                                    text = item.transcribedText.ifEmpty { "Nessun testo presente." },
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        }
                     }
                 }
             },
             confirmButton = {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedButton(
+                    IconButton(
                         onClick = {
-                            val sendIntent = android.content.Intent().apply {
-                                action = android.content.Intent.ACTION_SEND
-                                putExtra(android.content.Intent.EXTRA_TEXT, item.transcribedText)
-                                type = "text/plain"
-                            }
-                            context.startActivity(android.content.Intent.createChooser(sendIntent, "Condividi trascrizione"))
+                            viewModel.deleteHistoryItem(item.id)
+                            selectedDetailItem = null
+                            Toast.makeText(context, "Trascrizione eliminata", Toast.LENGTH_SHORT).show()
                         }
                     ) {
-                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Condividi")
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Elimina",
+                            tint = MaterialTheme.colorScheme.error
+                        )
                     }
-                    Button(
-                        onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            val clip = ClipData.newPlainText("Trascrizione Vocale", item.transcribedText)
-                            clipboard.setPrimaryClip(clip)
-                            Toast.makeText(context, "Testo copiato negli appunti!", Toast.LENGTH_SHORT).show()
-                        }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Copia")
+                        OutlinedButton(
+                            onClick = {
+                                val sendIntent = android.content.Intent().apply {
+                                    action = android.content.Intent.ACTION_SEND
+                                    putExtra(android.content.Intent.EXTRA_TEXT, item.transcribedText)
+                                    type = "text/plain"
+                                }
+                                context.startActivity(android.content.Intent.createChooser(sendIntent, "Condividi trascrizione"))
+                            }
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Condividi")
+                        }
+
+                        Button(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("Trascrizione Vocale", item.transcribedText)
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "Testo copiato negli appunti!", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Copia")
+                        }
                     }
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { selectedDetailItem = null }) {
-                    Text("Chiudi")
-                }
-            }
+            dismissButton = null
         )
     }
 
