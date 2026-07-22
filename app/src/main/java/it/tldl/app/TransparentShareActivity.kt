@@ -50,86 +50,88 @@ class TransparentShareActivity : ComponentActivity() {
         }
 
         setContent {
-            val state by TranscriptionService.state.collectAsState()
-            var isAudioPlaying by remember { mutableStateOf(false) }
+            it.tldl.app.ui.theme.TLDLTheme {
+                val state by TranscriptionService.state.collectAsState()
+                var isAudioPlaying by remember { mutableStateOf(false) }
 
-            val progressPercent = when (state) {
-                is TranscriptionState.Transcribing -> (state as TranscriptionState.Transcribing).progress
-                is TranscriptionState.Decoding -> 0
-                is TranscriptionState.Success -> 100
-                else -> 0
-            }
-
-            val transcribedText = when (state) {
-                is TranscriptionState.Transcribing -> (state as TranscriptionState.Transcribing).partialText
-                is TranscriptionState.Success -> (state as TranscriptionState.Success).text
-                is TranscriptionState.Error -> "Errore: ${(state as TranscriptionState.Error).message}"
-                else -> ""
-            }
-
-            val isFinished = state is TranscriptionState.Success || state is TranscriptionState.Error
-
-            TranscriptionBottomSheet(
-                progressPercent = progressPercent,
-                transcribedText = transcribedText,
-                isFinished = isFinished,
-                isPlayingAudio = isAudioPlaying,
-                onCopyClick = { textToCopy ->
-                    copyToClipboard(textToCopy)
-                },
-                onShareClick = { textToShare ->
-                    shareText(textToShare)
-                },
-                onPlayAudioClick = {
-                    if (audioUri != null) {
-                        try {
-                            if (isAudioPlaying && activeMediaPlayer != null) {
-                                activeMediaPlayer?.pause()
-                                isAudioPlaying = false
-                            } else if (!isAudioPlaying && activeMediaPlayer != null) {
-                                activeMediaPlayer?.start()
-                                isAudioPlaying = true
-                            } else {
-                                activeMediaPlayer?.stop()
-                                activeMediaPlayer?.release()
-                                activeMediaPlayer = android.media.MediaPlayer.create(this@TransparentShareActivity, audioUri)?.apply {
-                                    setOnCompletionListener { mp ->
-                                        mp.release()
-                                        if (activeMediaPlayer == mp) {
-                                            activeMediaPlayer = null
-                                            isAudioPlaying = false
-                                        }
-                                    }
-                                    start()
-                                    isAudioPlaying = true
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Toast.makeText(this@TransparentShareActivity, "Impossibile riprodurre l'audio", Toast.LENGTH_SHORT).show()
-                            isAudioPlaying = false
-                        }
-                    }
-                },
-                onDismiss = {
-                    finish()
-                },
-                onGoToSettings = {
-                    val intent = Intent(this@TransparentShareActivity, MainActivity::class.java)
-                    startActivity(intent)
-                    finish()
-                },
-                onCancelClick = {
-                    val cancelIntent = Intent(this@TransparentShareActivity, TranscriptionService::class.java).apply {
-                        action = TranscriptionService.ACTION_CANCEL
-                    }
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                        startForegroundService(cancelIntent)
-                    } else {
-                        startService(cancelIntent)
-                    }
-                    finish()
+                val progressPercent = when (state) {
+                    is TranscriptionState.Transcribing -> (state as TranscriptionState.Transcribing).progress
+                    is TranscriptionState.Decoding -> 0
+                    is TranscriptionState.Success -> 100
+                    else -> 0
                 }
-            )
+
+                val transcribedText = when (state) {
+                    is TranscriptionState.Transcribing -> (state as TranscriptionState.Transcribing).partialText
+                    is TranscriptionState.Success -> (state as TranscriptionState.Success).text
+                    is TranscriptionState.Error -> "Errore: ${(state as TranscriptionState.Error).message}"
+                    else -> ""
+                }
+
+                val isFinished = state is TranscriptionState.Success || state is TranscriptionState.Error
+
+                TranscriptionBottomSheet(
+                    progressPercent = progressPercent,
+                    transcribedText = transcribedText,
+                    isFinished = isFinished,
+                    isPlayingAudio = isAudioPlaying,
+                    onCopyClick = { textToCopy ->
+                        copyToClipboard(textToCopy)
+                    },
+                    onShareClick = { textToShare ->
+                        shareText(textToShare)
+                    },
+                    onPlayAudioClick = {
+                        if (audioUri != null) {
+                            try {
+                                if (isAudioPlaying && activeMediaPlayer != null) {
+                                    activeMediaPlayer?.pause()
+                                    isAudioPlaying = false
+                                } else if (!isAudioPlaying && activeMediaPlayer != null) {
+                                    activeMediaPlayer?.start()
+                                    isAudioPlaying = true
+                                } else {
+                                    activeMediaPlayer?.stop()
+                                    activeMediaPlayer?.release()
+                                    activeMediaPlayer = android.media.MediaPlayer.create(this@TransparentShareActivity, audioUri)?.apply {
+                                        setOnCompletionListener { mp ->
+                                            mp.release()
+                                            if (activeMediaPlayer == mp) {
+                                                activeMediaPlayer = null
+                                                isAudioPlaying = false
+                                            }
+                                        }
+                                        start()
+                                        isAudioPlaying = true
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(this@TransparentShareActivity, "Impossibile riprodurre l'audio", Toast.LENGTH_SHORT).show()
+                                isAudioPlaying = false
+                            }
+                        }
+                    },
+                    onDismiss = {
+                        finish()
+                    },
+                    onGoToSettings = {
+                        val intent = Intent(this@TransparentShareActivity, MainActivity::class.java)
+                        startActivity(intent)
+                        finish()
+                    },
+                    onCancelClick = {
+                        val cancelIntent = Intent(this@TransparentShareActivity, TranscriptionService::class.java).apply {
+                            action = TranscriptionService.ACTION_CANCEL
+                        }
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            startForegroundService(cancelIntent)
+                        } else {
+                            startService(cancelIntent)
+                        }
+                        finish()
+                    }
+                )
+            }
         }
     }
 
