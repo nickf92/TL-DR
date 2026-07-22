@@ -157,9 +157,6 @@ class TransparentShareActivity : ComponentActivity() {
             activeMediaPlayer?.release()
         } catch (e: Exception) {}
         activeMediaPlayer = null
-        currentCacheFile?.let { file ->
-            if (file.exists()) file.delete()
-        }
     }
 
     private fun startTranscriptionService(uri: Uri) {

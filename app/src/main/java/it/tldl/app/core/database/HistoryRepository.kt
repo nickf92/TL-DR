@@ -103,8 +103,13 @@ class HistoryRepository(
                 val appContext = context.applicationContext
                 val prefs = appContext.getSharedPreferences("tldl_prefs", android.content.Context.MODE_PRIVATE)
                 val isOptIn = prefs.getBoolean("enable_history_opt_in", true)
-                val db = DatabaseProvider.getDatabase(appContext)
-                val instance = HistoryRepository(context = appContext, dao = db.transcriptionDao(), isOptInEnabled = isOptIn)
+                val db = try {
+                    DatabaseProvider.getDatabase(appContext)
+                } catch (t: Throwable) {
+                    android.util.Log.e("HistoryRepository", "Failed to open encrypted database", t)
+                    null
+                }
+                val instance = HistoryRepository(context = appContext, dao = db?.transcriptionDao(), isOptInEnabled = isOptIn)
                 INSTANCE = instance
                 instance
             }
