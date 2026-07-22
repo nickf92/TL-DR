@@ -52,6 +52,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _historyItems = MutableStateFlow<List<it.tldl.app.core.database.TranscriptionEntity>>(emptyList())
     val historyItems = _historyItems.asStateFlow()
 
+    private val _hasActiveSTTModel = MutableStateFlow(true)
+    val hasActiveSTTModel = _hasActiveSTTModel.asStateFlow()
+
     private val prefs = application.getSharedPreferences("tldl_prefs", android.content.Context.MODE_PRIVATE)
 
     init {
@@ -117,6 +120,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val currentRam = _availableRam.value
 
             _selectedTextCleanerId.value = activeCleanerId
+            _hasActiveSTTModel.value = activeSTT != null && modelManager.isModelDownloaded(activeSTT.id)
 
             val allStates = available.map { info ->
                 val downloaded = modelManager.isModelDownloaded(info.id)

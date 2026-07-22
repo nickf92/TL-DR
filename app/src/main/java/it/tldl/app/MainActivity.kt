@@ -9,12 +9,14 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -75,55 +77,50 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-enum class AppTab(val title: String) {
-    MODELS("Modelli IA"),
-    HISTORY("Cronologia")
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(viewModel: SettingsViewModel = viewModel()) {
-    val isHistoryOptIn by viewModel.isHistoryOptInEnabled.collectAsState()
-    var selectedTab by remember(isHistoryOptIn) {
-        mutableStateOf(if (isHistoryOptIn) AppTab.HISTORY else AppTab.MODELS)
+    var isSettingsOpen by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = isSettingsOpen) {
+        isSettingsOpen = false
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { 
-                    Text(
-                        text = if (selectedTab == AppTab.MODELS) "TL;DL - Gestione Modelli" else "TL;DL - Cronologia Trascrizioni",
-                        fontWeight = FontWeight.Bold
-                    ) 
-                }
-            )
-        },
-        bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    selected = selectedTab == AppTab.MODELS,
-                    onClick = { selectedTab = AppTab.MODELS },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    label = { Text(AppTab.MODELS.title) }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == AppTab.HISTORY,
-                    onClick = { selectedTab = AppTab.HISTORY },
-                    icon = { Icon(Icons.Default.History, contentDescription = null) },
-                    label = { Text(AppTab.HISTORY.title) }
+    if (isSettingsOpen) {
+        SettingsScreen(
+            viewModel = viewModel,
+            onBackClick = { isSettingsOpen = false }
+        )
+    } else {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { 
+                        Text(
+                            text = "TL;DL - Cronologia",
+                            fontWeight = FontWeight.Bold
+                        ) 
+                    },
+                    actions = {
+                        IconButton(onClick = { isSettingsOpen = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Impostazioni"
+                            )
+                        }
+                    }
                 )
             }
-        }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            when (selectedTab) {
-                AppTab.MODELS -> SettingsScreen(viewModel)
-                AppTab.HISTORY -> HistoryScreen(viewModel)
+        ) { padding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                HistoryScreen(
+                    viewModel = viewModel,
+                    onNavigateToSettings = { isSettingsOpen = true }
+                )
             }
         }
     }
@@ -131,7 +128,10 @@ fun MainScreen(viewModel: SettingsViewModel = viewModel()) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel) {
+fun SettingsScreen(
+    viewModel: SettingsViewModel,
+    onBackClick: () -> Unit
+) {
     val transcriptionModels by viewModel.transcriptionModels.collectAsState()
     val cleaningModels by viewModel.cleaningModels.collectAsState()
     val selectedCleanerId by viewModel.selectedTextCleanerId.collectAsState()
@@ -144,193 +144,215 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     val onSelectCleaner = remember(viewModel) { { id: String -> viewModel.selectTextCleaner(id) } }
     val onDelete = remember(viewModel) { { id: String -> viewModel.deleteModel(id) } }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // RAM METRIC BANNER
-        item(key = "ram_header") {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { 
+                    Text(
+                        text = "Impostazioni & Modelli IA",
+                        fontWeight = FontWeight.Bold
+                    ) 
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Torna alla Cronologia"
+                        )
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // RAM METRIC BANNER
+            item(key = "ram_header") {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    )
                 ) {
-                    Surface(
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(44.dp)
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.Memory,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "RAM Disponibile nel Dispositivo",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "${availableRam} MB",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-
-        // POST-PROCESSING SWITCH
-        item(key = "cleaner_switch") {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Post-Processing Pulizia Testo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            "Ripristina punteggiatura e rimuove intercalari automaticamente.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Switch(
-                        checked = isCleanerEnabled,
-                        onCheckedChange = { viewModel.toggleTextCleaner(it) }
-                    )
-                }
-            }
-        }
-
-        // HISTORY OPT-IN SWITCH
-        item(key = "history_switch") {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Salva Cronologia Locale Cifrata", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            "Persiste le trascrizioni in un database Room locale cifrato con SQLCipher ed Android KeyStore.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Switch(
-                        checked = isHistoryOptIn,
-                        onCheckedChange = { viewModel.toggleHistoryOptIn(it) }
-                    )
-                }
-            }
-        }
-
-        // SECTION 1: TRASCRIZIONE AUDIO
-        item(key = "header_stt") {
-            Text(
-                text = "1. Modelli di Trascrizione Vocale (STT)",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-
-        items(
-            items = transcriptionModels,
-            key = { it.info.id },
-            contentType = { "model_item" }
-        ) { modelState ->
-            ModelItem(
-                state = modelState,
-                onDownloadClick = onDownload,
-                onSelectClick = onSelectSTT,
-                onDeleteClick = onDelete
-            )
-        }
-
-        // SECTION 2: PULIZIA TESTO & PUNTEGGIATURA
-        item(key = "header_cleaner") {
-            Text(
-                text = "2. Modelli di Pulizia Testo & Punteggiatura",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 16.dp)
-            )
-        }
-
-        // Default Rule-based option
-        item(key = "rules_cleaner") {
-            val isRulesSelected = selectedCleanerId == "rules"
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Engine Euristico a Regole (Integrato)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text("Leggerissimo e immediato. Rimuove intercalari (ehm, cioè) e formatta frasi.", style = MaterialTheme.typography.bodySmall)
-                        Spacer(Modifier.height(6.dp))
-                        if (isRulesSelected) {
-                            SuggestionChip(
-                                onClick = {},
-                                label = { Text("Attivo") },
-                                icon = { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) },
-                                colors = SuggestionChipDefaults.suggestionChipColors(
-                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                    labelColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        Surface(
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Memory,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
-                            )
+                            }
                         }
-                    }
-
-                    if (!isRulesSelected) {
-                        OutlinedButton(onClick = { onSelectCleaner("rules") }) {
-                            Text("Usa")
+                        Spacer(Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Memoria RAM Disponibile nel Dispositivo",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "${availableRam} MB",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
             }
-        }
 
-        items(
-            items = cleaningModels,
-            key = { it.info.id },
-            contentType = { "model_item" }
-        ) { modelState ->
-            ModelItem(
-                state = modelState,
-                onDownloadClick = onDownload,
-                onSelectClick = onSelectCleaner,
-                onDeleteClick = onDelete
-            )
+            // POST-PROCESSING SWITCH
+            item(key = "cleaner_switch") {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Post-Processing Pulizia Testo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "Ripristina punteggiatura e rimuove intercalari automaticamente.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Switch(
+                            checked = isCleanerEnabled,
+                            onCheckedChange = { viewModel.toggleTextCleaner(it) }
+                        )
+                    }
+                }
+            }
+
+            // HISTORY OPT-IN SWITCH
+            item(key = "history_switch") {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Salva Cronologia Locale Cifrata", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "Persiste le trascrizioni in un database Room locale cifrato con SQLCipher ed Android KeyStore.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Switch(
+                            checked = isHistoryOptIn,
+                            onCheckedChange = { viewModel.toggleHistoryOptIn(it) }
+                        )
+                    }
+                }
+            }
+
+            // SECTION 1: TRASCRIZIONE AUDIO
+            item(key = "header_stt") {
+                Text(
+                    text = "1. Modelli di Trascrizione Vocale (STT)",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+
+            items(
+                items = transcriptionModels,
+                key = { it.info.id },
+                contentType = { "model_item" }
+            ) { modelState ->
+                ModelItem(
+                    state = modelState,
+                    onDownloadClick = onDownload,
+                    onSelectClick = onSelectSTT,
+                    onDeleteClick = onDelete
+                )
+            }
+
+            // SECTION 2: PULIZIA TESTO & PUNTEGGIATURA
+            item(key = "header_cleaner") {
+                Text(
+                    text = "2. Modelli di Pulizia Testo & Punteggiatura",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
+            }
+
+            // Default Rule-based option
+            item(key = "rules_cleaner") {
+                val isRulesSelected = selectedCleanerId == "rules"
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Engine Euristico a Regole (Integrato)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Leggerissimo e immediato. Rimuove intercalari (ehm, cioè) e formatta frasi.", style = MaterialTheme.typography.bodySmall)
+                            Spacer(Modifier.height(6.dp))
+                            if (isRulesSelected) {
+                                SuggestionChip(
+                                    onClick = {},
+                                    label = { Text("Attivo") },
+                                    icon = { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                                    colors = SuggestionChipDefaults.suggestionChipColors(
+                                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                        labelColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                )
+                            }
+                        }
+
+                        if (!isRulesSelected) {
+                            OutlinedButton(onClick = { onSelectCleaner("rules") }) {
+                                Text("Usa")
+                            }
+                        }
+                    }
+                }
+            }
+
+            items(
+                items = cleaningModels,
+                key = { it.info.id },
+                contentType = { "model_item" }
+            ) { modelState ->
+                ModelItem(
+                    state = modelState,
+                    onDownloadClick = onDownload,
+                    onSelectClick = onSelectCleaner,
+                    onDeleteClick = onDelete
+                )
+            }
         }
     }
 }
@@ -453,9 +475,13 @@ fun ModelItem(
 }
 
 @Composable
-fun HistoryScreen(viewModel: SettingsViewModel) {
+fun HistoryScreen(
+    viewModel: SettingsViewModel,
+    onNavigateToSettings: () -> Unit = {}
+) {
     val historyItems by viewModel.historyItems.collectAsState()
     val isHistoryOptIn by viewModel.isHistoryOptInEnabled.collectAsState()
+    val hasActiveSTTModel by viewModel.hasActiveSTTModel.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     val context = LocalContext.current
 
@@ -466,6 +492,7 @@ fun HistoryScreen(viewModel: SettingsViewModel) {
 
     LaunchedEffect(Unit) {
         viewModel.loadHistory()
+        viewModel.refreshModels()
     }
 
     Column(
@@ -473,6 +500,50 @@ fun HistoryScreen(viewModel: SettingsViewModel) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        // BANNER MODELLO MANCANTE
+        if (!hasActiveSTTModel) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Configurazione Modello Richiesta",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Nessun modello IA di trascrizione vocale è attualmente attivo sul tuo dispositivo. Scarica e seleziona un modello nelle impostazioni per iniziare a trascrivere file audio.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = onNavigateToSettings,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.onErrorContainer,
+                            contentColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Configura Modelli Ora")
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+
         if (!isHistoryOptIn) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -486,7 +557,7 @@ fun HistoryScreen(viewModel: SettingsViewModel) {
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Per persistere le trascrizioni in modo permanente e sicuro sul tuo dispositivo (cifrato con SQLCipher), abilita l'opzione 'Salva Cronologia Locale Cifrata' nella scheda Modelli.",
+                        "Per persistere le trascrizioni in modo permanente e sicuro sul tuo dispositivo (cifrato con SQLCipher), abilita l'opzione nelle impostazioni.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
