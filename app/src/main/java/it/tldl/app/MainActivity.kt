@@ -146,11 +146,54 @@ fun SettingsScreen(
     val availableRam by viewModel.availableRam.collectAsState()
     val isCleanerEnabled by viewModel.isTextCleanerEnabled.collectAsState()
     val isHistoryOptIn by viewModel.isHistoryOptInEnabled.collectAsState()
+    val context = LocalContext.current
 
     val onDownload = remember(viewModel) { { info: ModelInfo -> viewModel.downloadModel(info) } }
     val onSelectSTT = remember(viewModel) { { id: String -> viewModel.selectModel(id) } }
     val onSelectCleaner = remember(viewModel) { { id: String -> viewModel.selectTextCleaner(id) } }
     val onDelete = remember(viewModel) { { id: String -> viewModel.deleteModel(id) } }
+
+    var modelToDelete by remember { mutableStateOf<ModelInfo?>(null) }
+
+    modelToDelete?.let { model ->
+        AlertDialog(
+            onDismissRequest = { modelToDelete = null },
+            icon = {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text("Eliminare il Modello ${model.name}?", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text("Il file del modello verrà rimosso dal dispositivo. Per utilizzarlo di nuovo in futuro dovrai scaricarlo nuovamente.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDelete(model.id)
+                        modelToDelete = null
+                        Toast.makeText(context, "Modello eliminato", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Elimina Modello")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { modelToDelete = null }) {
+                    Text("Annulla")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -252,7 +295,7 @@ fun SettingsScreen(
             }
 
             // HISTORY OPT-IN SWITCH
-            item(key = "history_switch") {
+            item(key = "history_opt_in_switch") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
@@ -262,10 +305,10 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Salva Cronologia Locale Cifrata", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Salvataggio Cronologia Trascrizioni", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Spacer(Modifier.height(2.dp))
                             Text(
-                                "Persiste le trascrizioni in un database Room locale cifrato con SQLCipher ed Android KeyStore.",
+                                "Mantiene uno storico cifrato in locale delle trascrizioni eseguite.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -279,10 +322,10 @@ fun SettingsScreen(
                 }
             }
 
-            // SECTION 1: TRASCRIZIONE AUDIO
+            // SECTION 1: TRASCRIZIONE STT
             item(key = "header_stt") {
                 Text(
-                    text = "1. Modelli di Trascrizione Vocale (STT)",
+                    text = "1. Modelli Trascrizione Vocale (STT)",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 8.dp)
@@ -298,7 +341,14 @@ fun SettingsScreen(
                     state = modelState,
                     onDownloadClick = onDownload,
                     onSelectClick = onSelectSTT,
-                    onDeleteClick = onDelete
+                    onDeleteClick = { id ->
+                        val info = transcriptionModels.find { it.info.id == id }?.info
+                        if (info != null) {
+                            modelToDelete = info
+                        } else {
+                            onDelete(id)
+                        }
+                    }
                 )
             }
 
@@ -491,6 +541,10 @@ fun HistoryScreen(
     val isHistoryOptIn by viewModel.isHistoryOptInEnabled.collectAsState()
     val hasActiveSTTModel by viewModel.hasActiveSTTModel.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
+    var selectedDetailItem by remember { mutableStateOf<TranscriptionEntity?>(null) }
+    var showClearHistoryDialog by remember { mutableStateOf(false) }
+    var itemToDelete by remember { mutableStateOf<TranscriptionEntity?>(null) }
+
     val context = LocalContext.current
 
     val filteredItems = remember(historyItems, searchQuery) {
@@ -503,7 +557,88 @@ fun HistoryScreen(
         viewModel.refreshModels()
     }
 
-    var selectedDetailItem by remember { mutableStateOf<TranscriptionEntity?>(null) }
+    if (showClearHistoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearHistoryDialog = false },
+            icon = {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text("Svuotare la Cronologia?", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text("Sei sicuro di voler eliminare tutte le trascrizioni salvate? Questa azione non può essere annullata.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.clearHistory()
+                        showClearHistoryDialog = false
+                        Toast.makeText(context, "Cronologia svuotata", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Elimina Tutto")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearHistoryDialog = false }) {
+                    Text("Annulla")
+                }
+            }
+        )
+    }
+
+    itemToDelete?.let { item ->
+        AlertDialog(
+            onDismissRequest = { itemToDelete = null },
+            icon = {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text("Eliminare Trascrizione?", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text("Sei sicuro di voler eliminare questa trascrizione in modo permanente?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteHistoryItem(item.id)
+                        if (selectedDetailItem?.id == item.id) {
+                            selectedDetailItem = null
+                        }
+                        itemToDelete = null
+                        Toast.makeText(context, "Trascrizione eliminata", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Elimina")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { itemToDelete = null }) {
+                    Text("Annulla")
+                }
+            }
+        )
+    }
 
     selectedDetailItem?.let { item ->
         val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
@@ -571,7 +706,7 @@ fun HistoryScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 340.dp),
+                            .heightIn(max = 280.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                         )
@@ -590,31 +725,13 @@ fun HistoryScreen(
                             }
                         }
                     }
-                }
-            },
-            confirmButton = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = {
-                            viewModel.deleteHistoryItem(item.id)
-                            selectedDetailItem = null
-                            Toast.makeText(context, "Trascrizione eliminata", Toast.LENGTH_SHORT).show()
-                        }
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Elimina",
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
 
+                    Spacer(Modifier.height(16.dp))
+
+                    // ACTION ROW 1: Copia e Condividi (Equal Weight)
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedButton(
                             onClick = {
@@ -624,7 +741,8 @@ fun HistoryScreen(
                                     type = "text/plain"
                                 }
                                 context.startActivity(android.content.Intent.createChooser(sendIntent, "Condividi trascrizione"))
-                            }
+                            },
+                            modifier = Modifier.weight(1f)
                         ) {
                             Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
@@ -637,15 +755,43 @@ fun HistoryScreen(
                                 val clip = ClipData.newPlainText("Trascrizione Vocale", item.transcribedText)
                                 clipboard.setPrimaryClip(clip)
                                 Toast.makeText(context, "Testo copiato negli appunti!", Toast.LENGTH_SHORT).show()
-                            }
+                            },
+                            modifier = Modifier.weight(1f)
                         ) {
                             Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
                             Text("Copia")
                         }
                     }
+
+                    Spacer(Modifier.height(4.dp))
+
+                    // ACTION ROW 2: Elimina (Destructive) e Chiudi
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = {
+                                viewModel.deleteHistoryItem(item.id)
+                                selectedDetailItem = null
+                                Toast.makeText(context, "Trascrizione eliminata", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Elimina")
+                        }
+
+                        TextButton(onClick = { selectedDetailItem = null }) {
+                            Text("Chiudi")
+                        }
+                    }
                 }
             },
+            confirmButton = {},
             dismissButton = null
         )
     }
@@ -813,7 +959,7 @@ fun HistoryScreen(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                TextButton(onClick = { viewModel.clearHistory() }) {
+                TextButton(onClick = { showClearHistoryDialog = true }) {
                     Text("Cancella Tutto", color = MaterialTheme.colorScheme.error)
                 }
             }
@@ -838,7 +984,8 @@ fun HistoryScreen(
                             Toast.makeText(context, "Testo copiato!", Toast.LENGTH_SHORT).show()
                         },
                         onDeleteClick = { id ->
-                            viewModel.deleteHistoryItem(id)
+                            val entity = filteredItems.find { it.id == id }
+                            if (entity != null) itemToDelete = entity
                         }
                     )
                 }
