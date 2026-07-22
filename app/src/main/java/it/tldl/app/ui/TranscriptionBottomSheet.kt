@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
@@ -28,6 +29,7 @@ fun TranscriptionBottomSheet(
     progressPercent: Int,
     transcribedText: String,
     isFinished: Boolean,
+    isPlayingAudio: Boolean = false,
     onCopyClick: (String) -> Unit,
     onShareClick: (String) -> Unit,
     onDismiss: () -> Unit,
@@ -193,7 +195,10 @@ fun TranscriptionBottomSheet(
                                 )
 
                                 FilledTonalIconButton(onClick = onPlayAudioClick) {
-                                    Icon(Icons.Default.PlayArrow, contentDescription = "Ascolta Audio")
+                                    Icon(
+                                        imageVector = if (isPlayingAudio) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                        contentDescription = if (isPlayingAudio) "Metti in pausa" else "Ascolta Audio"
+                                    )
                                 }
                             }
 

@@ -11,6 +11,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import it.tldl.app.core.service.TranscriptionService
 import it.tldl.app.core.service.TranscriptionState
 import it.tldl.app.ui.TranscriptionBottomSheet
@@ -48,6 +51,7 @@ class TransparentShareActivity : ComponentActivity() {
 
         setContent {
             val state by TranscriptionService.state.collectAsState()
+            var isAudioPlaying by remember { mutableStateOf(false) }
 
             val progressPercent = when (state) {
                 is TranscriptionState.Transcribing -> (state as TranscriptionState.Transcribing).progress
@@ -69,6 +73,7 @@ class TransparentShareActivity : ComponentActivity() {
                 progressPercent = progressPercent,
                 transcribedText = transcribedText,
                 isFinished = isFinished,
+                isPlayingAudio = isAudioPlaying,
                 onCopyClick = { textToCopy ->
                     copyToClipboard(textToCopy)
                 },
@@ -78,17 +83,30 @@ class TransparentShareActivity : ComponentActivity() {
                 onPlayAudioClick = {
                     if (audioUri != null) {
                         try {
-                            activeMediaPlayer?.stop()
-                            activeMediaPlayer?.release()
-                            activeMediaPlayer = android.media.MediaPlayer.create(this@TransparentShareActivity, audioUri)?.apply {
-                                setOnCompletionListener { mp ->
-                                    mp.release()
-                                    if (activeMediaPlayer == mp) activeMediaPlayer = null
+                            if (isAudioPlaying && activeMediaPlayer != null) {
+                                activeMediaPlayer?.pause()
+                                isAudioPlaying = false
+                            } else if (!isAudioPlaying && activeMediaPlayer != null) {
+                                activeMediaPlayer?.start()
+                                isAudioPlaying = true
+                            } else {
+                                activeMediaPlayer?.stop()
+                                activeMediaPlayer?.release()
+                                activeMediaPlayer = android.media.MediaPlayer.create(this@TransparentShareActivity, audioUri)?.apply {
+                                    setOnCompletionListener { mp ->
+                                        mp.release()
+                                        if (activeMediaPlayer == mp) {
+                                            activeMediaPlayer = null
+                                            isAudioPlaying = false
+                                        }
+                                    }
+                                    start()
+                                    isAudioPlaying = true
                                 }
-                                start()
                             }
                         } catch (e: Exception) {
                             Toast.makeText(this@TransparentShareActivity, "Impossibile riprodurre l'audio", Toast.LENGTH_SHORT).show()
+                            isAudioPlaying = false
                         }
                     }
                 },
