@@ -12,9 +12,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -23,8 +27,10 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
@@ -495,6 +501,85 @@ fun HistoryScreen(
         viewModel.refreshModels()
     }
 
+    var selectedDetailItem by remember { mutableStateOf<TranscriptionEntity?>(null) }
+
+    selectedDetailItem?.let { item ->
+        val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
+        val formattedDate = remember(item.timestampMs) { dateFormat.format(Date(item.timestampMs)) }
+
+        AlertDialog(
+            onDismissRequest = { selectedDetailItem = null },
+            title = {
+                Column {
+                    Text(
+                        text = item.fileName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = formattedDate,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            text = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 380.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    SelectionContainer {
+                        Text(
+                            text = item.transcribedText,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val sendIntent = android.content.Intent().apply {
+                                action = android.content.Intent.ACTION_SEND
+                                putExtra(android.content.Intent.EXTRA_TEXT, item.transcribedText)
+                                type = "text/plain"
+                            }
+                            context.startActivity(android.content.Intent.createChooser(sendIntent, "Condividi trascrizione"))
+                        }
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Condividi")
+                    }
+                    Button(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = ClipData.newPlainText("Trascrizione Vocale", item.transcribedText)
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(context, "Testo copiato negli appunti!", Toast.LENGTH_SHORT).show()
+                        }
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Copia")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { selectedDetailItem = null }) {
+                    Text("Chiudi")
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -628,6 +713,7 @@ fun HistoryScreen(
                 ) { item ->
                     HistoryItemCard(
                         item = item,
+                        onItemClick = { selectedDetailItem = it },
                         onCopyClick = { text ->
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             val clip = ClipData.newPlainText("Trascrizione", text)
@@ -647,6 +733,7 @@ fun HistoryScreen(
 @Composable
 fun HistoryItemCard(
     item: TranscriptionEntity,
+    onItemClick: (TranscriptionEntity) -> Unit,
     onCopyClick: (String) -> Unit,
     onDeleteClick: (Long) -> Unit
 ) {
@@ -654,7 +741,9 @@ fun HistoryItemCard(
     val formattedDate = remember(item.timestampMs) { dateFormat.format(Date(item.timestampMs)) }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onItemClick(item) },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -684,14 +773,15 @@ fun HistoryItemCard(
             Text(
                 text = item.transcribedText,
                 style = MaterialTheme.typography.bodyMedium,
-                maxLines = 6
+                maxLines = 4
             )
 
             Spacer(Modifier.height(12.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedButton(
                     onClick = { onCopyClick(item.transcribedText) },
@@ -700,6 +790,15 @@ fun HistoryItemCard(
                     Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("Copia")
+                }
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = { onItemClick(item) },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Icon(Icons.Default.OpenInFull, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Apri")
                 }
             }
         }
