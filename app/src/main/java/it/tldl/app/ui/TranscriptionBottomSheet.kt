@@ -5,6 +5,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoFixHigh
@@ -160,12 +161,24 @@ fun TranscriptionBottomSheet(
                                         },
                                         label = "textCleanTransition"
                                     ) { textToDisplay ->
-                                        Text(
-                                            text = textToDisplay.ifEmpty { "Nessun testo trascritto." },
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
+                                        SelectionContainer {
+                                            Text(
+                                                text = textToDisplay.ifEmpty { "Nessun testo trascritto." },
+                                                style = MaterialTheme.typography.bodyLarge
+                                            )
+                                        }
                                     }
                                 }
+                            }
+
+                            if (isPlayingAudio) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                LinearProgressIndicator(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(3.dp),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(12.dp))
