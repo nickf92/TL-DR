@@ -19,6 +19,9 @@ import java.io.FileOutputStream
 
 class TransparentShareActivity : ComponentActivity() {
 
+    private var activeMediaPlayer: android.media.MediaPlayer? = null
+    private var currentCacheFile: File? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -38,7 +41,8 @@ class TransparentShareActivity : ComponentActivity() {
             }
         } else null
 
-        if (audioUri != null) {
+        // Prevent restarting transcription service on orientation change or config change
+        if (savedInstanceState == null && audioUri != null) {
             startTranscriptionService(audioUri)
         }
 
@@ -71,6 +75,23 @@ class TransparentShareActivity : ComponentActivity() {
                 onShareClick = { textToShare ->
                     shareText(textToShare)
                 },
+                onPlayAudioClick = {
+                    if (audioUri != null) {
+                        try {
+                            activeMediaPlayer?.stop()
+                            activeMediaPlayer?.release()
+                            activeMediaPlayer = android.media.MediaPlayer.create(this@TransparentShareActivity, audioUri)?.apply {
+                                setOnCompletionListener { mp ->
+                                    mp.release()
+                                    if (activeMediaPlayer == mp) activeMediaPlayer = null
+                                }
+                                start()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(this@TransparentShareActivity, "Impossibile riprodurre l'audio", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
                 onDismiss = {
                     finish()
                 },
@@ -94,10 +115,21 @@ class TransparentShareActivity : ComponentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        activeMediaPlayer?.stop()
+        activeMediaPlayer?.release()
+        activeMediaPlayer = null
+        currentCacheFile?.let { file ->
+            if (file.exists()) file.delete()
+        }
+    }
+
     private fun startTranscriptionService(uri: Uri) {
         val mimeType = contentResolver.getType(uri)
         val extension = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType) ?: "audio"
         val cacheFile = File(cacheDir, "input_audio_${System.currentTimeMillis()}.$extension")
+        currentCacheFile = cacheFile
         try {
             contentResolver.openInputStream(uri)?.use { input ->
                 FileOutputStream(cacheFile).use { output ->

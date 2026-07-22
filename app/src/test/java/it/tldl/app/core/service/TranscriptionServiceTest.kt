@@ -39,4 +39,18 @@ class TranscriptionServiceTest {
         // Note: Since it's in a coroutine, we might need to wait or use a more synchronous approach for the test.
         assertTrue(TranscriptionService.state.value is TranscriptionState.Decoding)
     }
+
+    @Test
+    fun `service should transition to Idle when ACTION_CANCEL is received`() = runTest {
+        val controller = Robolectric.buildService(TranscriptionService::class.java)
+        val service = controller.create().get()
+
+        val cancelIntent = Intent(service, TranscriptionService::class.java).apply {
+            action = TranscriptionService.ACTION_CANCEL
+        }
+
+        service.onStartCommand(cancelIntent, 0, 2)
+
+        assertTrue(TranscriptionService.state.value is TranscriptionState.Idle)
+    }
 }

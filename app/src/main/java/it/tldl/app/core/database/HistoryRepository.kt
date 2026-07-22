@@ -5,7 +5,7 @@ class HistoryRepository(
     var isOptInEnabled: Boolean = false
 ) {
     // RAM Session Store (Default behavior)
-    private val sessionMemoryStore = mutableListOf<TranscriptionEntity>()
+    private val sessionMemoryStore = java.util.Collections.synchronizedList(mutableListOf<TranscriptionEntity>())
 
     suspend fun saveTranscription(fileName: String, text: String, durationSeconds: Int = 0) {
         val entity = TranscriptionEntity(
@@ -15,7 +15,9 @@ class HistoryRepository(
         )
 
         // Salva sempre in RAM per la sessione corrente
-        sessionMemoryStore.add(0, entity)
+        synchronized(sessionMemoryStore) {
+            sessionMemoryStore.add(0, entity)
+        }
 
         // Salva nel database cifrato solo se l'utente ha attivato l'opt-in nelle impostazioni
         if (isOptInEnabled && dao != null) {
@@ -27,11 +29,31 @@ class HistoryRepository(
         return if (isOptInEnabled && dao != null) {
             dao.getAll()
         } else {
-            sessionMemoryStore.toList()
+            synchronized(sessionMemoryStore) {
+                sessionMemoryStore.toList()
+            }
         }
     }
 
     fun clearSessionMemory() {
-        sessionMemoryStore.clear()
+        synchronized(sessionMemoryStore) {
+            sessionMemoryStore.clear()
+        }
+    }
+
+    companion object {
+        @Volatile
+        private var INSTANCE: HistoryRepository? = null
+
+        fun getInstance(context: android.content.Context): HistoryRepository {
+            return INSTANCE ?: synchronized(this) {
+                val prefs = context.getSharedPreferences("tldl_prefs", android.content.Context.MODE_PRIVATE)
+                val isOptIn = prefs.getBoolean("enable_history_opt_in", false)
+                val db = DatabaseProvider.getDatabase(context)
+                val instance = HistoryRepository(dao = db.transcriptionDao(), isOptInEnabled = isOptIn)
+                INSTANCE = instance
+                instance
+            }
+        }
     }
 }

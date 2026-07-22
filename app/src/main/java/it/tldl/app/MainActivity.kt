@@ -47,11 +47,13 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background
-            ) {
-                SettingsScreen()
+            it.tldl.app.ui.theme.TLDLTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    SettingsScreen()
+                }
             }
         }
     }
@@ -118,6 +120,29 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         Switch(
                             checked = isCleanerEnabled,
                             onCheckedChange = { viewModel.toggleTextCleaner(it) }
+                        )
+                    }
+                }
+            }
+
+            item(key = "history_switch", contentType = "history_switch") {
+                val isHistoryOptIn by viewModel.isHistoryOptInEnabled.collectAsState()
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Salva Cronologia Locale Cifrata", style = MaterialTheme.typography.titleMedium)
+                            Text("Persiste le trascrizioni in un database Room locale cifrato con SQLCipher ed Android KeyStore.", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Switch(
+                            checked = isHistoryOptIn,
+                            onCheckedChange = { viewModel.toggleHistoryOptIn(it) }
                         )
                     }
                 }
@@ -229,10 +254,17 @@ fun ModelItem(
                 Text(model.name, style = MaterialTheme.typography.titleMedium)
                 Text("Dimensioni: ${model.sizeMb}MB | RAM richiesta: ${model.ramRequiredMb}MB", style = MaterialTheme.typography.bodySmall)
                 
-                if (state.isSelected) {
-                    Text("In Uso (Attivo)", color = Color(0xFF2196F3), style = MaterialTheme.typography.labelSmall)
-                } else if (model.isIdealCap) {
-                    Text("Consigliato (Smart Default)", color = Color(0xFF4CAF50), style = MaterialTheme.typography.labelSmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (state.isSelected) {
+                        Text("In Uso (Attivo) ", color = Color(0xFF2196F3), style = MaterialTheme.typography.labelSmall)
+                    } else if (model.isIdealCap) {
+                        Text("Consigliato (Smart Default) ", color = Color(0xFF4CAF50), style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (state.isSafe) {
+                        Text("✓ RAM OK", color = Color(0xFF4CAF50), style = MaterialTheme.typography.labelSmall)
+                    } else {
+                        Text("⚠ RAM Elevata", color = Color(0xFFFF9800), style = MaterialTheme.typography.labelSmall)
+                    }
                 }
                 
                 if (state.error != null) {

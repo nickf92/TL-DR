@@ -51,8 +51,15 @@ class ModelDownloadWorker(
         val modelsDir = File(applicationContext.filesDir, "models/$modelId")
         if (!modelsDir.exists()) modelsDir.mkdirs()
 
+        val canonicalDir = modelsDir.canonicalPath
         val targetFile = File(modelsDir, fileName)
         val tempFile = File(modelsDir, "$fileName.tmp")
+
+        // Security check: Protect against Path Traversal vulnerabilities
+        if (!targetFile.canonicalPath.startsWith(canonicalDir) || fileName.contains("..")) {
+            Log.e("ModelDownloadWorker", "Path traversal detected in fileName: $fileName")
+            return@withContext Result.failure()
+        }
         
         if (targetFile.parentFile?.exists() == false) targetFile.parentFile?.mkdirs()
         if (tempFile.parentFile?.exists() == false) tempFile.parentFile?.mkdirs()
@@ -77,38 +84,37 @@ class ModelDownloadWorker(
                 }
 
                 val body = response.body
-                val totalBytes = body.contentLength()
+                val totalBytes = body?.contentLength() ?: -1L
                 var downloadedBytes = 0L
 
-                val input = body.byteStream()
-                val output = FileOutputStream(tempFile)
-                val buffer = ByteArray(32768) // Larger buffer for ONNX files
-                var bytesRead: Int
-                var lastProgress = 0
+                val input = body?.byteStream() ?: return@withContext Result.failure()
+                val isSuccess = FileOutputStream(tempFile).use { output ->
+                    val buffer = ByteArray(32768) // Larger buffer for ONNX files
+                    var bytesRead: Int
+                    var lastProgress = 0
 
-                while (input.read(buffer).also { bytesRead = it } != -1) {
-                    output.write(buffer, 0, bytesRead)
-                    downloadedBytes += bytesRead
-                    
-                    if (totalBytes > 0) {
-                        val progress = (downloadedBytes * 100 / totalBytes).toInt()
-                        if (progress - lastProgress >= 5 || progress == 100) {
-                            lastProgress = progress
-                            setProgress(workDataOf("progress" to progress))
-                            updateNotification(notificationId, modelId, fileName, progress)
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        output.write(buffer, 0, bytesRead)
+                        downloadedBytes += bytesRead
+                        
+                        if (totalBytes > 0) {
+                            val progress = (downloadedBytes * 100 / totalBytes).toInt()
+                            if (progress - lastProgress >= 5 || progress == 100) {
+                                lastProgress = progress
+                                setProgress(workDataOf("progress" to progress))
+                                updateNotification(notificationId, modelId, fileName, progress)
+                            }
                         }
                     }
-                }
 
-                output.flush()
-                output.close()
-                input.close()
-
-                // Atomic rename to final filename with fallback copy
-                val isSuccess = tempFile.renameTo(targetFile) || run {
-                    tempFile.copyTo(targetFile, overwrite = true)
-                    tempFile.delete()
-                    targetFile.exists()
+                    output.flush()
+                    
+                    // Atomic rename to final filename with fallback copy
+                    tempFile.renameTo(targetFile) || run {
+                        tempFile.copyTo(targetFile, overwrite = true)
+                        tempFile.delete()
+                        targetFile.exists()
+                    }
                 }
 
                 if (isSuccess) {

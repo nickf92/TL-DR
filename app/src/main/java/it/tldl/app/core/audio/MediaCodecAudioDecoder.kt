@@ -50,54 +50,66 @@ class MediaCodecAudioDecoder : AudioDecoder {
         codec.configure(inputFormat, null, null, 0)
         codec.start()
 
-        val allSamples = mutableListOf<Short>()
+        val sampleChunks = mutableListOf<ShortArray>()
+        var totalShortCount = 0
         val bufferInfo = MediaCodec.BufferInfo()
         var isExtractorDone = false
         var isCodecDone = false
 
-        while (!isCodecDone) {
-            if (!isExtractorDone) {
-                val inputBufferIndex = codec.dequeueInputBuffer(10000)
-                if (inputBufferIndex >= 0) {
-                    val inputBuffer = codec.getInputBuffer(inputBufferIndex)!!
-                    val sampleSize = extractor.readSampleData(inputBuffer, 0)
-                    if (sampleSize < 0) {
-                        codec.queueInputBuffer(inputBufferIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                        isExtractorDone = true
-                    } else {
-                        codec.queueInputBuffer(inputBufferIndex, 0, sampleSize, extractor.sampleTime, 0)
-                        extractor.advance()
+        try {
+            while (!isCodecDone) {
+                if (!isExtractorDone) {
+                    val inputBufferIndex = codec.dequeueInputBuffer(10000)
+                    if (inputBufferIndex >= 0) {
+                        val inputBuffer = codec.getInputBuffer(inputBufferIndex)!!
+                        val sampleSize = extractor.readSampleData(inputBuffer, 0)
+                        if (sampleSize < 0) {
+                            codec.queueInputBuffer(inputBufferIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            isExtractorDone = true
+                        } else {
+                            codec.queueInputBuffer(inputBufferIndex, 0, sampleSize, extractor.sampleTime, 0)
+                            extractor.advance()
+                        }
+                    }
+                }
+
+                val outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 10000)
+                if (outputBufferIndex >= 0) {
+                    val outputBuffer = codec.getOutputBuffer(outputBufferIndex)!!
+                    outputBuffer.position(bufferInfo.offset)
+                    val chunkShortCount = bufferInfo.size / 2
+                    val data = ShortArray(chunkShortCount)
+                    outputBuffer.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(data)
+                    sampleChunks.add(data)
+                    totalShortCount += chunkShortCount
+                    
+                    codec.releaseOutputBuffer(outputBufferIndex, false)
+                    if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                        isCodecDone = true
+                    }
+                } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    val newFormat = codec.outputFormat
+                    if (newFormat.containsKey(MediaFormat.KEY_SAMPLE_RATE)) {
+                        sampleRate = newFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                    }
+                    if (newFormat.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) {
+                        channelCount = newFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
                     }
                 }
             }
-
-            val outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 10000)
-            if (outputBufferIndex >= 0) {
-                val outputBuffer = codec.getOutputBuffer(outputBufferIndex)!!
-                val data = ShortArray(bufferInfo.size / 2)
-                outputBuffer.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(data)
-                allSamples.addAll(data.toList())
-                
-                codec.releaseOutputBuffer(outputBufferIndex, false)
-                if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                    isCodecDone = true
-                }
-            } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                val newFormat = codec.outputFormat
-                if (newFormat.containsKey(MediaFormat.KEY_SAMPLE_RATE)) {
-                    sampleRate = newFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-                }
-                if (newFormat.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) {
-                    channelCount = newFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-                }
-            }
+        } finally {
+            try { codec.stop() } catch (_: Exception) {}
+            try { codec.release() } catch (_: Exception) {}
+            try { extractor.release() } catch (_: Exception) {}
         }
 
-        codec.stop()
-        codec.release()
-        extractor.release()
+        val rawPcm = ShortArray(totalShortCount)
+        var pos = 0
+        for (chunk in sampleChunks) {
+            System.arraycopy(chunk, 0, rawPcm, pos, chunk.size)
+            pos += chunk.size
+        }
 
-        val rawPcm = allSamples.toShortArray()
         val monoPcm = if (channelCount > 1) {
             val numFrames = rawPcm.size / channelCount
             ShortArray(numFrames) { i ->

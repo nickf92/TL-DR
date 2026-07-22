@@ -9,6 +9,7 @@ class SherpaOnnxEngine : SpeechToTextEngine {
     private var offlineRecognizer: OfflineRecognizer? = null
 
     override fun initialize(modelDirectory: File) {
+        release()
         val files = modelDirectory.listFiles() ?: emptyArray()
         
         val encoder = files.find { it.name.contains("encoder") && it.name.endsWith(".onnx") }
@@ -78,26 +79,29 @@ class SherpaOnnxEngine : SpeechToTextEngine {
     ): String {
         val engine = onlineRecognizer!!
         val stream = engine.createStream()
-        val floatSamples = FloatArray(samples.size) { samples[it] / 32768.0f }
-        val chunkSize = 16000
-        val totalChunks = (floatSamples.size + chunkSize - 1) / chunkSize
-        var fullResult = ""
-        
-        for (i in 0 until totalChunks) {
-            val start = i * chunkSize
-            val end = minOf(start + chunkSize, floatSamples.size)
-            stream.acceptWaveform(floatSamples.copyOfRange(start, end), 16000)
-            while (engine.isReady(stream)) {
-                engine.decode(stream)
+        return try {
+            val floatSamples = FloatArray(samples.size) { samples[it] / 32768.0f }
+            val chunkSize = 16000
+            val totalChunks = (floatSamples.size + chunkSize - 1) / chunkSize
+            var fullResult = ""
+            
+            for (i in 0 until totalChunks) {
+                val start = i * chunkSize
+                val end = minOf(start + chunkSize, floatSamples.size)
+                stream.acceptWaveform(floatSamples.copyOfRange(start, end), 16000)
+                while (engine.isReady(stream)) {
+                    engine.decode(stream)
+                }
+                val text = engine.getResult(stream).text
+                if (text.isNotEmpty()) {
+                    fullResult = text
+                    onProgress(((i + 1) * 100 / totalChunks), fullResult)
+                }
             }
-            val text = engine.getResult(stream).text
-            if (text.isNotEmpty()) {
-                fullResult = text
-                onProgress(((i + 1) * 100 / totalChunks), fullResult)
-            }
+            fullResult
+        } finally {
+            stream.release()
         }
-        stream.release()
-        return fullResult
     }
 
     private fun transcribeOffline(
@@ -113,14 +117,17 @@ class SherpaOnnxEngine : SpeechToTextEngine {
 
         if (totalSamples <= windowSize) {
             val stream = engine.createStream()
-            onProgress(10, "Avvio Whisper...")
-            stream.acceptWaveform(floatSamples, 16000)
-            onProgress(50, "Elaborazione Whisper...")
-            engine.decode(stream)
-            val result = engine.getResult(stream).text
-            stream.release()
-            onProgress(95, result)
-            return result
+            return try {
+                onProgress(10, "Avvio Whisper...")
+                stream.acceptWaveform(floatSamples, 16000)
+                onProgress(50, "Elaborazione Whisper...")
+                engine.decode(stream)
+                val result = engine.getResult(stream).text
+                onProgress(95, result)
+                result
+            } finally {
+                stream.release()
+            }
         }
 
         val fullTextBuilder = StringBuilder()
@@ -132,14 +139,17 @@ class SherpaOnnxEngine : SpeechToTextEngine {
             val chunk = floatSamples.copyOfRange(start, end)
 
             val stream = engine.createStream()
-            stream.acceptWaveform(chunk, 16000)
-            engine.decode(stream)
-            val text = engine.getResult(stream).text.trim()
-            stream.release()
+            try {
+                stream.acceptWaveform(chunk, 16000)
+                engine.decode(stream)
+                val text = engine.getResult(stream).text.trim()
 
-            if (text.isNotEmpty()) {
-                if (fullTextBuilder.isNotEmpty()) fullTextBuilder.append(" ")
-                fullTextBuilder.append(text)
+                if (text.isNotEmpty()) {
+                    if (fullTextBuilder.isNotEmpty()) fullTextBuilder.append(" ")
+                    fullTextBuilder.append(text)
+                }
+            } finally {
+                stream.release()
             }
 
             val progress = (20 + (((i + 1) * 75) / numChunks)).coerceIn(20, 95)

@@ -63,6 +63,8 @@ class TranscriptionService : Service() {
                 }
             }
             ACTION_CANCEL -> {
+                val notification = buildNotification(0, "Annullamento...", isFinished = true)
+                startForeground(NOTIFICATION_ID, notification)
                 currentTranscriptionJob?.cancel()
                 _state.value = TranscriptionState.Idle
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {

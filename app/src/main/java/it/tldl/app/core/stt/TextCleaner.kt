@@ -114,54 +114,70 @@ class TextCleaner(
             val sessionOptions = ai.onnxruntime.OrtSession.SessionOptions().apply {
                 setIntraOpNumThreads(2)
             }
+            
             val session = env.createSession(modelFile.absolutePath, sessionOptions)
+            val generatedTokens = mutableListOf<Long>()
+            val currentTokens = inputTokens.toMutableList()
+            val maxNewTokens = 128
 
-            val inputShape = longArrayOf(1, inputTokens.size.toLong())
-            val inputTensor = ai.onnxruntime.OnnxTensor.createTensor(env, java.nio.LongBuffer.wrap(inputTokens), inputShape)
-            val attentionMask = LongArray(inputTokens.size) { 1L }
-            val maskTensor = ai.onnxruntime.OnnxTensor.createTensor(env, java.nio.LongBuffer.wrap(attentionMask), inputShape)
+            try {
+                for (step in 0 until maxNewTokens) {
+                    val inputShape = longArrayOf(1, currentTokens.size.toLong())
+                    val inputBuffer = java.nio.LongBuffer.wrap(currentTokens.toLongArray())
+                    val maskBuffer = java.nio.LongBuffer.wrap(LongArray(currentTokens.size) { 1L })
+                    
+                    val inputTensor = ai.onnxruntime.OnnxTensor.createTensor(env, inputBuffer, inputShape)
+                    val maskTensor = ai.onnxruntime.OnnxTensor.createTensor(env, maskBuffer, inputShape)
 
-            val inputs = mapOf("input_ids" to inputTensor, "attention_mask" to maskTensor)
-            val results = session.run(inputs)
+                    val inputs = mapOf("input_ids" to inputTensor, "attention_mask" to maskTensor)
+                    val results = session.run(inputs)
 
-            var generatedTokenText = ""
-            val logitsTensor = results.get(0) as? ai.onnxruntime.OnnxTensor
-            if (logitsTensor != null) {
-                val shape = logitsTensor.info.shape
-                if (shape.size >= 3) {
-                    val seqLen = shape[1].toInt()
-                    val vocabSize = shape[2].toInt()
-                    val floatBuffer = logitsTensor.floatBuffer
+                    var nextTokenId = -1L
+                    val logitsTensor = results.get(0) as? ai.onnxruntime.OnnxTensor
+                    if (logitsTensor != null) {
+                        val shape = logitsTensor.info.shape
+                        if (shape.size >= 3) {
+                            val seqLen = shape[1].toInt()
+                            val vocabSize = shape[2].toInt()
+                            val floatBuffer = logitsTensor.floatBuffer
 
-                    val offset = (seqLen - 1) * vocabSize
-                    var maxIdx = 0
-                    var maxVal = -Float.MAX_VALUE
-                    val limit = minOf(offset + vocabSize, floatBuffer.capacity())
-                    for (i in offset until limit) {
-                        val valAtI = floatBuffer.get(i)
-                        if (valAtI > maxVal) {
-                            maxVal = valAtI
-                            maxIdx = i - offset
+                            val offset = (seqLen - 1) * vocabSize
+                            var maxIdx = 0
+                            var maxVal = -Float.MAX_VALUE
+                            val limit = minOf(offset + vocabSize, floatBuffer.capacity())
+                            for (i in offset until limit) {
+                                val valAtI = floatBuffer.get(i)
+                                if (valAtI > maxVal) {
+                                    maxVal = valAtI
+                                    maxIdx = i - offset
+                                }
+                            }
+                            nextTokenId = maxIdx.toLong()
                         }
                     }
-                    val decoded = tokenizer.decode(longArrayOf(maxIdx.toLong()))
-                    if (decoded.isNotBlank()) {
-                        generatedTokenText = decoded
+
+                    inputTensor.close()
+                    maskTensor.close()
+                    results.close()
+
+                    // End of sequence (EOS / <|im_end|>) or invalid token
+                    if (nextTokenId <= 0L || nextTokenId == 2L || nextTokenId == 50256L) {
+                        break
                     }
+
+                    generatedTokens.add(nextTokenId)
+                    currentTokens.add(nextTokenId)
                 }
+            } finally {
+                session.close()
+                sessionOptions.close()
             }
 
-            inputTensor.close()
-            maskTensor.close()
-            results.close()
-            session.close()
-            sessionOptions.close()
-
-            val baseResult = cleanRuleBased(rawText)
-            if (generatedTokenText.isNotBlank()) {
-                "$baseResult ($generatedTokenText)".trim()
+            val generatedText = tokenizer.decode(generatedTokens.toLongArray())
+            if (generatedText.isNotBlank()) {
+                generatedText.trim()
             } else {
-                baseResult
+                cleanRuleBased(rawText)
             }
         } catch (e: Throwable) {
             isOrtAvailable = false

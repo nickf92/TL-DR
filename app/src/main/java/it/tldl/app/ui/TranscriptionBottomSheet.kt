@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoFixHigh
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,7 +29,8 @@ fun TranscriptionBottomSheet(
     onShareClick: (String) -> Unit,
     onDismiss: () -> Unit,
     onCancelClick: () -> Unit,
-    onGoToSettings: () -> Unit = {}
+    onGoToSettings: () -> Unit = {},
+    onPlayAudioClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val modelManager = remember { ModelManager(context) }
@@ -177,12 +179,15 @@ fun TranscriptionBottomSheet(
                                 },
                                 label = { Text(if (isCleaned) "Pulito" else "Pulisci Testo") }
                             )
-                            Button(onClick = { onCopyClick(displayText) }) {
-                                Text("Copia")
-                            }
-                            Button(onClick = { onShareClick(displayText) }) {
-                                Text("Condividi")
-                            }
+                             IconButton(onClick = onPlayAudioClick) {
+                                 Icon(Icons.Default.PlayArrow, contentDescription = "Ascolta Audio")
+                             }
+                             Button(onClick = { onCopyClick(displayText) }) {
+                                 Text("Copia")
+                             }
+                             Button(onClick = { onShareClick(displayText) }) {
+                                 Text("Condividi")
+                             }
                         }
                     }
                 }

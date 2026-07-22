@@ -23,6 +23,7 @@ data class ModelItemState(
     val isSelected: Boolean = false,
     val isDownloading: Boolean = false,
     val downloadProgress: Int = 0,
+    val isSafe: Boolean = true,
     val error: String? = null
 )
 
@@ -45,10 +46,20 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _isTextCleanerEnabled = MutableStateFlow(false)
     val isTextCleanerEnabled = _isTextCleanerEnabled.asStateFlow()
 
+    private val _isHistoryOptInEnabled = MutableStateFlow(false)
+    val isHistoryOptInEnabled = _isHistoryOptInEnabled.asStateFlow()
+
+    private val _historyItems = MutableStateFlow<List<it.tldl.app.core.database.TranscriptionEntity>>(emptyList())
+    val historyItems = _historyItems.asStateFlow()
+
+    private val prefs = application.getSharedPreferences("tldl_prefs", android.content.Context.MODE_PRIVATE)
+
     init {
-        refreshModels()
         _availableRam.value = RamCalculator.getAvailableRamMb(application)
         _isTextCleanerEnabled.value = modelManager.isTextCleanerEnabled()
+        _isHistoryOptInEnabled.value = prefs.getBoolean("enable_history_opt_in", false)
+        refreshModels()
+        loadHistory()
     }
 
     fun toggleTextCleaner(enabled: Boolean) {
@@ -56,11 +67,30 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _isTextCleanerEnabled.value = enabled
     }
 
+    fun toggleHistoryOptIn(enabled: Boolean) {
+        prefs.edit().putBoolean("enable_history_opt_in", enabled).apply()
+        _isHistoryOptInEnabled.value = enabled
+        loadHistory()
+    }
+
+    fun loadHistory() {
+        viewModelScope.launch {
+            try {
+                val repo = it.tldl.app.core.database.HistoryRepository.getInstance(getApplication())
+                repo.isOptInEnabled = _isHistoryOptInEnabled.value
+                _historyItems.value = repo.getRecentTranscriptions()
+            } catch (t: Throwable) {
+                // Silently ignore DB load failure if uninitialized
+            }
+        }
+    }
+
     fun refreshModels() {
         viewModelScope.launch {
             val available = modelManager.getAvailableModels()
             val activeSTT = modelManager.getActiveModel()
             val activeCleanerId = modelManager.getSelectedTextCleanerId()
+            val currentRam = _availableRam.value
 
             _selectedTextCleanerId.value = activeCleanerId
 
@@ -74,7 +104,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 ModelItemState(
                     info = info,
                     isDownloaded = downloaded,
-                    isSelected = isSelected
+                    isSelected = isSelected,
+                    isSafe = RamCalculator.isSafeForDevice(info, currentRam)
                 )
             }
 
@@ -103,6 +134,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             refreshModels()
         }
     }
+
+    private val downloadJobs = mutableMapOf<String, kotlinx.coroutines.Job>()
 
     fun downloadModel(model: ModelInfo) {
         if (modelManager.isModelDownloaded(model.id)) return
@@ -139,7 +172,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         
         continuation.enqueue()
         
-        viewModelScope.launch {
+        downloadJobs[model.id]?.cancel()
+        downloadJobs[model.id] = viewModelScope.launch {
             workManager.getWorkInfosByTagFlow("download_${model.id}").collect { workInfos ->
                 if (workInfos.isNotEmpty()) {
                     val finishedCount = workInfos.count { it.state == WorkInfo.State.SUCCEEDED }
