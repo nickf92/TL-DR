@@ -14,6 +14,9 @@ interface TranscriptionDao {
     @Query("SELECT * FROM transcriptions ORDER BY timestampMs DESC")
     suspend fun getAll(): List<TranscriptionEntity>
 
+    @Query("SELECT * FROM transcriptions ORDER BY timestampMs DESC")
+    fun getAllFlow(): kotlinx.coroutines.flow.Flow<List<TranscriptionEntity>>
+
     @Query("DELETE FROM transcriptions WHERE id = :id")
     suspend fun deleteById(id: Long)
 

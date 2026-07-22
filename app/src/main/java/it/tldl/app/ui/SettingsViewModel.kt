@@ -76,12 +76,17 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         loadHistory()
     }
 
+    private var historyJob: kotlinx.coroutines.Job? = null
+
     fun loadHistory() {
-        viewModelScope.launch {
+        historyJob?.cancel()
+        historyJob = viewModelScope.launch {
             try {
                 val repo = it.tldl.app.core.database.HistoryRepository.getInstance(getApplication())
                 repo.isOptInEnabled = _isHistoryOptInEnabled.value
-                _historyItems.value = repo.getRecentTranscriptions()
+                repo.getHistoryFlow().collect { items ->
+                    _historyItems.value = items
+                }
             } catch (t: Throwable) {
                 // Silently ignore DB load failure if uninitialized
             }

@@ -1,5 +1,7 @@
 package it.tldl.app.core.database
 
+import kotlinx.coroutines.flow.asStateFlow
+
 class HistoryRepository(
     private val context: android.content.Context? = null,
     private val dao: TranscriptionDao? = null,
@@ -26,6 +28,16 @@ class HistoryRepository(
             }
         }
 
+    private val sessionFlow = kotlinx.coroutines.flow.MutableStateFlow<List<TranscriptionEntity>>(emptyList())
+
+    fun getHistoryFlow(): kotlinx.coroutines.flow.Flow<List<TranscriptionEntity>> {
+        return if (isOptInEnabled && dao != null) {
+            dao.getAllFlow()
+        } else {
+            sessionFlow.asStateFlow()
+        }
+    }
+
     suspend fun saveTranscription(fileName: String, text: String, durationSeconds: Int = 0) {
         val entity = TranscriptionEntity(
             fileName = fileName,
@@ -36,6 +48,7 @@ class HistoryRepository(
         // Salva sempre in RAM per la sessione corrente
         synchronized(sessionMemoryStore) {
             sessionMemoryStore.add(0, entity)
+            sessionFlow.value = sessionMemoryStore.toList()
         }
 
         // Salva nel database cifrato solo se l'utente ha attivato l'opt-in nelle impostazioni
@@ -57,6 +70,7 @@ class HistoryRepository(
     suspend fun deleteTranscription(id: Long) {
         synchronized(sessionMemoryStore) {
             sessionMemoryStore.removeAll { it.id == id }
+            sessionFlow.value = sessionMemoryStore.toList()
         }
         if (isOptInEnabled && dao != null) {
             dao.deleteById(id)
@@ -66,6 +80,7 @@ class HistoryRepository(
     suspend fun clearAllTranscriptions() {
         synchronized(sessionMemoryStore) {
             sessionMemoryStore.clear()
+            sessionFlow.value = emptyList()
         }
         if (isOptInEnabled && dao != null) {
             dao.clearAll()
@@ -75,6 +90,7 @@ class HistoryRepository(
     fun clearSessionMemory() {
         synchronized(sessionMemoryStore) {
             sessionMemoryStore.clear()
+            sessionFlow.value = emptyList()
         }
     }
 

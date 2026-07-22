@@ -47,7 +47,8 @@ class TranscriptionPipeline(
 
             historyRepository?.let { repo ->
                 try {
-                    repo.saveTranscription(audioFile.name, finalResult)
+                    val displayName = if (audioFile.name.startsWith("input_audio_")) "Trascrizione Vocale" else audioFile.name
+                    repo.saveTranscription(displayName, finalResult)
                 } catch (t: Throwable) {
                     // Ignore optional history saving errors
                 }
