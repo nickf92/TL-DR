@@ -18,7 +18,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import it.tldl.app.core.stt.LocalTextCleaner
 import it.tldl.app.core.stt.ModelManager
@@ -39,11 +41,23 @@ fun TranscriptionBottomSheet(
     onPlayAudioClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     val modelManager = remember { ModelManager(context) }
     var isCleaned by remember { mutableStateOf(false) }
     val textCleaner = remember { LocalTextCleaner(modelManager) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+
+    var elapsedTimeSeconds by remember { mutableIntStateOf(0) }
+    LaunchedEffect(isFinished) {
+        if (!isFinished) {
+            elapsedTimeSeconds = 0
+            while (!isFinished) {
+                kotlinx.coroutines.delay(1000)
+                elapsedTimeSeconds++
+            }
+        }
+    }
 
     val displayText = remember(transcribedText, isCleaned) {
         if (isCleaned && transcribedText.isNotEmpty()) {
@@ -128,8 +142,9 @@ fun TranscriptionBottomSheet(
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Spacer(modifier = Modifier.height(8.dp))
+                            val timerFormatted = String.format(java.util.Locale.getDefault(), "%02d:%02d", elapsedTimeSeconds / 60, elapsedTimeSeconds % 60)
                             Text(
-                                text = "Elaborazione in corso ($progressPercent%)...",
+                                text = "Elaborazione in corso ($progressPercent%) • $timerFormatted",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Spacer(modifier = Modifier.height(16.dp))
@@ -236,6 +251,7 @@ fun TranscriptionBottomSheet(
 
                                 Button(
                                     onClick = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                         onCopyClick(displayText)
                                         coroutineScope.launch {
                                             snackbarHostState.showSnackbar("Testo copiato negli appunti!")

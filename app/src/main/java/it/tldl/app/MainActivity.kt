@@ -89,6 +89,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(viewModel: SettingsViewModel = viewModel()) {
     var isSettingsOpen by remember { mutableStateOf(false) }
+    val transcriptionModels by viewModel.transcriptionModels.collectAsState()
+    val activeModelName = remember(transcriptionModels) {
+        transcriptionModels.find { it.isSelected }?.info?.name
+    }
 
     BackHandler(enabled = isSettingsOpen) {
         isSettingsOpen = false
@@ -104,10 +108,18 @@ fun MainScreen(viewModel: SettingsViewModel = viewModel()) {
             topBar = {
                 TopAppBar(
                     title = { 
-                        Text(
-                            text = "TL;DL - Cronologia",
-                            fontWeight = FontWeight.Bold
-                        ) 
+                        Column {
+                            Text(
+                                text = "TL;DL - Cronologia",
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = if (activeModelName != null) "Modello attivo: $activeModelName" else "Nessun modello attivo",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (activeModelName != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     },
                     actions = {
                         IconButton(onClick = { isSettingsOpen = true }) {
@@ -225,43 +237,52 @@ fun SettingsScreen(
         ) {
             // RAM METRIC BANNER
             item(key = "ram_header") {
+                val ramPercentage = (availableRam.toFloat() / 4096f).coerceIn(0.1f, 1f)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                     )
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(44.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Default.Memory,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = MaterialTheme.shapes.medium,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.Memory,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Memoria RAM Disponibile nel Dispositivo",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "${availableRam} MB liberi",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
-                        Spacer(Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Memoria RAM Disponibile nel Dispositivo",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "${availableRam} MB",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Spacer(Modifier.height(12.dp))
+                        LinearProgressIndicator(
+                            progress = { ramPercentage },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceContainer
+                        )
                     }
                 }
             }
@@ -1016,12 +1037,31 @@ fun HistoryItemCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = formattedDate,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = formattedDate,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    if (item.durationSeconds > 0) {
+                        Spacer(Modifier.width(8.dp))
+                        val minutes = item.durationSeconds / 60
+                        val seconds = item.durationSeconds % 60
+                        val durationStr = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
+                        Surface(
+                            shape = MaterialTheme.shapes.extraSmall,
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh
+                        ) {
+                            Text(
+                                text = "⏱ $durationStr",
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
                 IconButton(onClick = { onDeleteClick(item.id) }, modifier = Modifier.size(24.dp)) {
                     Icon(
                         Icons.Default.Delete,
