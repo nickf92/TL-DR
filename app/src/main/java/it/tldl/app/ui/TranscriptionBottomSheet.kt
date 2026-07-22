@@ -164,62 +164,68 @@ fun TranscriptionBottomSheet(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
+                            // UTILITY ROW: Text Cleaner & Audio Playback
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    FilterChip(
-                                        selected = isCleaned,
-                                        onClick = {
-                                            val nextCleaned = !isCleaned
-                                            isCleaned = nextCleaned
-                                            val cleaned = textCleaner.cleanText(transcribedText)
-                                            val msg = if (nextCleaned) {
-                                                if (cleaned == transcribedText) "Nessuna modifica necessaria"
-                                                else "Pulizia applicata"
-                                            } else "Testo originale ripristinato"
-                                            coroutineScope.launch {
-                                                snackbarHostState.showSnackbar(msg)
-                                            }
-                                        },
-                                        leadingIcon = {
-                                            Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
-                                        },
-                                        label = { Text(if (isCleaned) "Pulito" else "Pulisci") }
-                                    )
+                                FilterChip(
+                                    selected = isCleaned,
+                                    onClick = {
+                                        val nextCleaned = !isCleaned
+                                        isCleaned = nextCleaned
+                                        val cleaned = textCleaner.cleanText(transcribedText)
+                                        val msg = if (nextCleaned) {
+                                            if (cleaned == transcribedText) "Nessuna modifica necessaria"
+                                            else "Pulizia applicata"
+                                        } else "Testo originale ripristinato"
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(msg)
+                                        }
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    },
+                                    label = { Text(if (isCleaned) "Testo Pulito" else "Pulisci Testo") }
+                                )
 
-                                    FilledTonalIconButton(onClick = onPlayAudioClick) {
-                                        Icon(Icons.Default.PlayArrow, contentDescription = "Ascolta Audio")
-                                    }
+                                FilledTonalIconButton(onClick = onPlayAudioClick) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = "Ascolta Audio")
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // PRIMARY ACTION ROW: Condividi & Copia
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedButton(
+                                    onClick = { onShareClick(displayText) },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Condividi")
                                 }
 
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    FilledTonalButton(onClick = { onShareClick(displayText) }) {
-                                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("Condividi")
-                                    }
-
-                                    Button(onClick = {
+                                Button(
+                                    onClick = {
                                         onCopyClick(displayText)
                                         coroutineScope.launch {
                                             snackbarHostState.showSnackbar("Testo copiato negli appunti!")
                                         }
-                                    }) {
-                                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("Copia")
-                                    }
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Copia")
                                 }
                             }
                         }

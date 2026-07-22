@@ -22,52 +22,61 @@
 4. **Resampling & Downmixing:** I campioni audio vengono convertiti in **PCM 16-bit Mono @ 16000 Hz** (formato standard richiesto dai modelli STT).
 5. **Fallback Strategy:** Se `MediaCodec` restituisce un errore di parsing/decodifica, l'operazione viene delegata a `FFmpegKit` per una conversione via codice C/C++.
 
+*Per la specifica dettagliata della pipeline audio, fare riferimento a [audio_pipeline_specs.md](specs/audio_pipeline_specs.md).*
+
 ---
 
-### 2.2. Motore STT (`sherpa-onnx` JNI Integration)
+## 2.2. Motore STT (`sherpa-onnx` JNI Integration)
 * **Pattern Strategy:** Interfaccia `SpeechToTextEngine` con classe concreta `SherpaOnnxEngine`.
 * **Approccio Streaming (Chunk-based):** 
   * Il file PCM convertito viene passato al motore `sherpa-onnx` a blocchi (chunk di buffer audio).
   * Consente l'elaborazione progressiva e riduce il picco di allocazione RAM.
   * Fornisce feedback temporali frequenti per la barra di progresso nella notifica e nella UI.
-* **Gestione Memoria RAM (Single-Model Constraint):**
+* **Gestione Memoria RAM (Single-Model Constraint & JNI Release):**
   * Un solo modello caricato in memoria C++/JNI alla volta.
-  * Invocazione esplicita di `release()` / `destroy()` prima del cambio modello per prevenire Out-Of-Memory (OOM).
+  * Invocazione esplicita di `release()` / `destroy()` prima del cambio modello e alla chiusura del servizio per liberare le risorse nativo-C++ e prevenire Out-Of-Memory (OOM) (Issue #15).
   * Il calcolo della RAM libera del dispositivo assegna un badge visivo **Verde** ai modelli compatibili nel catalogo.
+
+*Per la specifica dell'integrazione JNI e calcolo RAM, fare riferimento a [sherpa_onnx_implementation_specs.md](specs/sherpa_onnx_implementation_specs.md).*
 
 ---
 
-### 2.3. Trascrizione in Background (`TranscriptionService`)
+## 2.3. Trascrizione in Background (`TranscriptionService`)
 * **Service Type:** `ForegroundService` (con tipo `shortService` o `dataSync` in base all'API level Android).
 * **Notifica di Sistema:**
-  * Mostra titolo "Trascrizione in corso...", percentuale avanzamento (0-100%) e pulsante "Annulla".
+  * Mostra titolo "Trascrizione in corso...", percentuale avanzamento (0-100%) e pulsante "Annulla" (`ACTION_CANCEL`, Issue #12).
   * A completamento, la notifica si aggiorna in "Trascrizione completata" con azione rapida "Copia testo" o "Apri".
 * **Scollegamento dalla UI:** Se la `BottomSheet` viene chiusa, il `TranscriptionService` continua la sua esecuzione senza perdite di stato.
 
 ---
 
-### 2.4. Interfaccia Utente (Jetpack Compose & Material 3)
-* **Theme:** Dynamic Colors (Material You) + AMOLED Dark Mode.
+## 2.4. Interfaccia Utente (Jetpack Compose & Material 3)
+* **Theme:** Dynamic Colors (Material You) + AMOLED Dark Mode (Issue #18).
 * **Activity:** `TransparentShareActivity` (tema `Theme.Transparent` / `Theme.Material3.DayNight.NoActionBar`).
 * **Componenti UI principale:** `ModalBottomSheetLayout` con:
   * Anteprima stato (Loading / Progress Bar / Risultato).
-  * Pulsanti d'azione rapida: *Copia negli appunti*, *Ricondividi testo*, *Riproduci audio original*.
-  * Suggerimento modello iniziale basato su RAM libera (Onboarding "Smart Default").
+  * Pulsanti d'azione rapida: *Copia negli appunti*, *Ricondividi testo*, *Riproduci audio originale* (Issue #11).
+  * Suggerimento modello iniziale basato su RAM libera (Onboarding "Smart Default" & badge verdi, Issue #17).
 
 ---
 
-### 2.5. Storage & Privacy Layer (`HistoryRepository`)
+## 2.5. Storage & Privacy Layer (`HistoryRepository`)
 * **Default (RAM Cache):** `SessionMemoryStore` conserva gli ultimi testi trascritti solo in RAM finché il processo resta in vita.
 * **Opt-In (Local History):**
   * Interruttore nelle Impostazioni: "Salva cronologia locale".
-  * Se abilitato, i dati vengono persistiti in `AppDatabase` (Room) cifrato con **SQLCipher** / **Encrypted DB** tramite chiavi gestite dall'**Android KeyStore**.
+  * Se abilitato, i dati vengono persistiti in `AppDatabase` (Room) cifrato con **SQLCipher** / **Encrypted DB** tramite chiavi gestite dall'**Android KeyStore (AES-256)** (Issue #8).
   * Zero invio di dati all'esterno; zero analytics.
 
 ---
 
-## 3. Prossimi Passi per lo Sviluppo
-1. Configurazione progetto Android Kotlin / Gradle con modulo NDK e dipendenze `sherpa-onnx` / `FFmpegKit`.
-2. Implementazione `MediaCodecAudioDecoder` con fallback FFmpeg.
-3. Creazione del bridge JNI Kotlin-C++ per `sherpa-onnx`.
-4. Sviluppo di `TranscriptionService` (Foreground Service) e `TransparentShareActivity` (Compose Bottom Sheet).
-5. Costruzione del catalogo modelli JSON e logica di calcolo RAM.
+## 2.6. Pre-Processing VAD & Post-Processing Formattazione
+* **VAD Trimming:** Modulo opzionale per il filtraggio del silenzio prima dell'elaborazione STT via Silero VAD (Issue #9).
+* **Text Formatting:** Ripristino della punteggiatura e delle maiuscole sul testo grezzo estratto via `TextCleanerEngine`.
+
+*Per la specifica completa dei moduli VAD e formattazione, fare riferimento a [vad_postprocessing_specs.md](specs/vad_postprocessing_specs.md).*
+
+---
+
+## 3. Guida allo Sviluppo e Contributi
+
+Per la configurazione del campo di lavoro locale, l'esecuzione della suite di test unitari e le linee guida per le Pull Request, fare riferimento a [contributing.md](contributing.md).

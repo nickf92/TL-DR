@@ -85,11 +85,15 @@ L'APK compilato sarà disponibile nella directory:
 
 ---
 
-## 📖 Documentazione Tecnica
+## 📖 Documentazione Tecnica e Guida allo Sviluppo
 
-Per approfondire l'architettura e i requisiti di sistema:
+- [Guida al Contributo e Sviluppo Locale](docs/contributing.md)
 - [Product Requirements Document (PRD)](docs/PRD.md)
 - [Specifiche Tecniche e Architetturali](docs/architecture_specs.md)
+- [Specifica Pipeline Audio & Decodifica](docs/specs/audio_pipeline_specs.md)
+- [Specifica Motore STT Sherpa-ONNX & RAM](docs/specs/sherpa_onnx_implementation_specs.md)
+- [Specifica VAD & Post-Processing Formattazione](docs/specs/vad_postprocessing_specs.md)
+- [Backlog GitHub Issues](docs/github_issues.md)
 
 ---
 
