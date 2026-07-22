@@ -30,7 +30,7 @@ object DatabaseProvider {
             "tldl_encrypted.db"
         )
         .openHelperFactory(factory)
-        .fallbackToDestructiveMigration(false)
+        .fallbackToDestructiveMigration(true)
         .build()
     }
 

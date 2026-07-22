@@ -3,6 +3,8 @@ package it.tldl.app.ui
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -18,7 +20,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
@@ -38,7 +45,8 @@ fun TranscriptionBottomSheet(
     onDismiss: () -> Unit,
     onCancelClick: () -> Unit,
     onGoToSettings: () -> Unit = {},
-    onPlayAudioClick: () -> Unit = {}
+    onPlayAudioClick: () -> Unit = {},
+    onOpenApp: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
@@ -76,14 +84,54 @@ fun TranscriptionBottomSheet(
         label = "progressAnimation"
     )
 
+    var isAppOpened by remember { mutableStateOf(false) }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -35f && !isAppOpened) {
+                    isAppOpened = true
+                    onOpenApp()
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        dragHandle = { BottomSheetDefaults.DragHandle() },
+        dragHandle = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        if (!isAppOpened) {
+                            isAppOpened = true
+                            onOpenApp()
+                        }
+                    }
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures { _, dragAmount ->
+                            if (dragAmount < -20f && !isAppOpened) {
+                                isAppOpened = true
+                                onOpenApp()
+                            }
+                        }
+                    }
+            ) {
+                BottomSheetDefaults.DragHandle()
+            }
+        },
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .nestedScroll(nestedScrollConnection)
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

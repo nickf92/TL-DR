@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("kotlin-kapt")
 }
 
 android {
@@ -76,6 +77,7 @@ dependencies {
     // Storage
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    kapt(libs.androidx.room.compiler)
     implementation(libs.sqlcipher)
 
     // Native Libraries

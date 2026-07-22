@@ -94,6 +94,23 @@ class TransparentShareActivity : ComponentActivity() {
                         startActivity(intent)
                         finish()
                     },
+                    onOpenApp = {
+                        val intent = Intent(this@TransparentShareActivity, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        }
+                        startActivity(intent)
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                            overrideActivityTransition(
+                                OVERRIDE_TRANSITION_OPEN,
+                                R.anim.slide_in_up,
+                                R.anim.slide_out_top
+                            )
+                        } else {
+                            @Suppress("DEPRECATION")
+                            overridePendingTransition(R.anim.slide_in_up, R.anim.slide_out_top)
+                        }
+                        finish()
+                    },
                     onCancelClick = {
                         val cancelIntent = Intent(this@TransparentShareActivity, TranscriptionService::class.java).apply {
                             action = TranscriptionService.ACTION_CANCEL

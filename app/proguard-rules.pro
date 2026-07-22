@@ -15,3 +15,10 @@
 # ProGuard rules for ONNX Runtime
 -keep class ai.onnxruntime.** { *; }
 
+# Room Database Rules
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep class it.tldl.app.core.database.** { *; }
+-keep class * _Impl { *; }
+-dontwarn androidx.room.paging.**
+
+
