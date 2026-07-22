@@ -85,6 +85,30 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun deleteHistoryItem(id: Long) {
+        viewModelScope.launch {
+            try {
+                val repo = it.tldl.app.core.database.HistoryRepository.getInstance(getApplication())
+                repo.deleteTranscription(id)
+                loadHistory()
+            } catch (t: Throwable) {
+                Log.e("SettingsViewModel", "Failed to delete history item", t)
+            }
+        }
+    }
+
+    fun clearHistory() {
+        viewModelScope.launch {
+            try {
+                val repo = it.tldl.app.core.database.HistoryRepository.getInstance(getApplication())
+                repo.clearAllTranscriptions()
+                loadHistory()
+            } catch (t: Throwable) {
+                Log.e("SettingsViewModel", "Failed to clear history", t)
+            }
+        }
+    }
+
     fun refreshModels() {
         viewModelScope.launch {
             val available = modelManager.getAvailableModels()

@@ -35,6 +35,24 @@ class HistoryRepository(
         }
     }
 
+    suspend fun deleteTranscription(id: Long) {
+        synchronized(sessionMemoryStore) {
+            sessionMemoryStore.removeAll { it.id == id }
+        }
+        if (isOptInEnabled && dao != null) {
+            dao.deleteById(id)
+        }
+    }
+
+    suspend fun clearAllTranscriptions() {
+        synchronized(sessionMemoryStore) {
+            sessionMemoryStore.clear()
+        }
+        if (isOptInEnabled && dao != null) {
+            dao.clearAll()
+        }
+    }
+
     fun clearSessionMemory() {
         synchronized(sessionMemoryStore) {
             sessionMemoryStore.clear()
