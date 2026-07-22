@@ -82,33 +82,8 @@ class TransparentShareActivity : ComponentActivity() {
                         shareText(textToShare)
                     },
                     onPlayAudioClick = {
-                        if (audioUri != null) {
-                            try {
-                                if (isAudioPlaying && activeMediaPlayer != null) {
-                                    activeMediaPlayer?.pause()
-                                    isAudioPlaying = false
-                                } else if (!isAudioPlaying && activeMediaPlayer != null) {
-                                    activeMediaPlayer?.start()
-                                    isAudioPlaying = true
-                                } else {
-                                    activeMediaPlayer?.stop()
-                                    activeMediaPlayer?.release()
-                                    activeMediaPlayer = android.media.MediaPlayer.create(this@TransparentShareActivity, audioUri)?.apply {
-                                        setOnCompletionListener { mp ->
-                                            mp.release()
-                                            if (activeMediaPlayer == mp) {
-                                                activeMediaPlayer = null
-                                                isAudioPlaying = false
-                                            }
-                                        }
-                                        start()
-                                        isAudioPlaying = true
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                Toast.makeText(this@TransparentShareActivity, "Impossibile riprodurre l'audio", Toast.LENGTH_SHORT).show()
-                                isAudioPlaying = false
-                            }
+                        toggleAudioPlayback { playing ->
+                            isAudioPlaying = playing
                         }
                     },
                     onDismiss = {
@@ -135,10 +110,52 @@ class TransparentShareActivity : ComponentActivity() {
         }
     }
 
+    private fun toggleAudioPlayback(onStateChanged: (Boolean) -> Unit) {
+        val file = currentCacheFile
+        if (file == null || !file.exists()) {
+            Toast.makeText(this, "File audio non disponibile", Toast.LENGTH_SHORT).show()
+            onStateChanged(false)
+            return
+        }
+
+        try {
+            val player = activeMediaPlayer
+            if (player != null) {
+                if (player.isPlaying) {
+                    player.pause()
+                    onStateChanged(false)
+                } else {
+                    if (player.currentPosition >= player.duration - 100) {
+                        player.seekTo(0)
+                    }
+                    player.start()
+                    onStateChanged(true)
+                }
+            } else {
+                val newPlayer = android.media.MediaPlayer().apply {
+                    setDataSource(file.absolutePath)
+                    prepare()
+                    setOnCompletionListener {
+                        onStateChanged(false)
+                    }
+                    start()
+                }
+                activeMediaPlayer = newPlayer
+                onStateChanged(true)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TransparentShareActivity", "Error playing audio file", e)
+            Toast.makeText(this, "Impossibile riprodurre l'audio", Toast.LENGTH_SHORT).show()
+            onStateChanged(false)
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        activeMediaPlayer?.stop()
-        activeMediaPlayer?.release()
+        try {
+            activeMediaPlayer?.stop()
+            activeMediaPlayer?.release()
+        } catch (e: Exception) {}
         activeMediaPlayer = null
         currentCacheFile?.let { file ->
             if (file.exists()) file.delete()
